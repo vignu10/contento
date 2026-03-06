@@ -2,17 +2,21 @@ FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache libc6-compat openssl openssl-dev
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
-RUN npm ci && \
-    npx prisma generate
+RUN npm ci
+
+# Generate Prisma Client
+RUN npx prisma generate
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
+
+RUN apk add --no-cache openssl openssl-dev
 
 # Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
@@ -31,7 +35,7 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl openssl-dev
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
@@ -63,5 +67,4 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-# Run migrations and start server
 CMD ["node", "server.js"]

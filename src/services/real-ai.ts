@@ -1,8 +1,14 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY environment variable is missing or empty');
+  }
+  
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 export interface ContentOutputs {
   twitterThread: string[];
@@ -34,10 +40,8 @@ export async function generateRealOutputs(
   title?: string,
   styleExamples?: string[]
 ): Promise<ContentOutputs> {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY in environment.');
-  }
-
+  const openai = getOpenAIClient();
+  
   const styleContext = styleExamples?.length 
     ? `\n\nHere are examples of the creator's style:\n${styleExamples.join('\n\n')}`
     : '';
@@ -96,6 +100,8 @@ export async function extractKeyMoments(transcript: string): Promise<Array<{
   text: string;
   type: 'hook' | 'insight' | 'quote' | 'story';
 }>> {
+  const openai = getOpenAIClient();
+  
   const prompt = `Analyze this transcript and identify 10-15 key moments that would make great standalone content.
 
 For each moment, provide:

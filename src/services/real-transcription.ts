@@ -1,8 +1,14 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY environment variable is missing or empty');
+  }
+  
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 export interface TranscriptionResult {
   text: string;
@@ -15,6 +21,7 @@ export interface TranscriptionResult {
 
 export async function transcribeAudio(audioBuffer: Buffer, filename: string): Promise<TranscriptionResult> {
   try {
+    const openai = getOpenAIClient();
     const file = new File([new Uint8Array(audioBuffer)], filename);
     
     const transcription = await openai.audio.transcriptions.create({
@@ -39,7 +46,5 @@ export async function transcribeAudio(audioBuffer: Buffer, filename: string): Pr
 }
 
 export async function transcribeFromUrl(url: string): Promise<TranscriptionResult> {
-  // For YouTube, we'd need to download audio first
-  // This is a placeholder - in production, use yt-dlp or similar
   throw new Error('Direct URL transcription requires audio download. Please upload the file instead.');
 }

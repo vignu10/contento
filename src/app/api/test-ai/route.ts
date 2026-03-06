@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateRealOutputs } from '@/services/real-ai';
 
 export async function POST(request: NextRequest) {
   try {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ 
         error: 'OpenAI API key not configured',
-        mode: 'mock'
+        mode: 'mock',
+        message: 'Add OPENAI_API_KEY to environment variables to use real AI'
       }, { status: 400 });
     }
 
+    // Dynamically import to avoid build-time errors
+    const { generateRealOutputs } = await import('@/services/real-ai');
+    
     const body = await request.json();
     const { test } = body;
 
-    // Test with a simple transcript
-    const testTranscript = test || "This is a test transcript about AI and content creation. AI is transforming how we create and consume content.";
+    const testTranscript = test || "This is a test transcript about AI and content creation.";
     
-    console.log('[TEST] Testing AI generation...');
     const outputs = await generateRealOutputs(testTranscript, 'Test Content');
     
     return NextResponse.json({
@@ -31,10 +32,6 @@ export async function POST(request: NextRequest) {
         seoSummary: outputs.seoSummary.length,
         instagramCaption: outputs.instagramCaption.length,
         hashtags: outputs.hashtags.length,
-      },
-      sample: {
-        firstTweet: outputs.twitterThread[0],
-        linkedinPreview: outputs.linkedinPost.substring(0, 100) + '...',
       }
     });
   } catch (error) {
