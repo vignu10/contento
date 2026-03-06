@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verify } from 'jsonwebtoken';
+import { config as appConfig } from './lib/config';
 
-// Simple middleware without JWT (using cookies directly for demo)
-// In production, use a proper auth solution like NextAuth.js
+// Public paths that don't require authentication
+const PUBLIC_PATHS = ['/', '/api/auth', '/api/health'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Public paths
-  const publicPaths = ['/', '/api/auth', '/api/health'];
-  const isPublic = publicPaths.some(path => pathname.startsWith(path));
-
+  // Check if path is public
+  const isPublic = PUBLIC_PATHS.some(path => pathname.startsWith(path));
   if (isPublic) {
     return NextResponse.next();
   }
 
-  // Check for auth token (simple cookie check)
+  // Get auth token
   const token = request.cookies.get('auth-token')?.value;
 
   if (!token) {
@@ -25,9 +25,21 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // Token exists - let the request through
-  // Actual validation happens in API routes
-  return NextResponse.next();
+  // ✅ Actually verify the JWT signature (not just check existence)
+  try {
+    verify(token, appConfig.jwtSecret);
+    return NextResponse.next();
+  } catch (error) {
+    // Token is invalid or expired
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
+    }
+    
+    // Clear invalid cookie and redirect
+    const response = NextResponse.redirect(new URL('/', request.url));
+    response.cookies.delete('auth-token');
+    return response;
+  }
 }
 
 export const config = {

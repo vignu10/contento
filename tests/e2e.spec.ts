@@ -208,7 +208,7 @@ test.describe('E2E User Journey', () => {
 });
 
 test.describe('Error Handling', () => {
-  test('should handle network errors gracefully', async ({ page }) => {
+  test('should handle network errors gracefully', async ({ page, context }) => {
     // Login
     await page.goto('/');
     const timestamp = Date.now();

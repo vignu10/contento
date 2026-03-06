@@ -1,21 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verify } from 'jsonwebtoken';
 import { prisma } from '@/lib/db';
-import { getVideoInfo } from '@/services/youtube';
+import { getVideoInfo, validateVideoId } from '@/services/youtube';
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
+import { config } from '@/lib/config';
+import { getUserId } from '@/lib/auth';
+import { createContentJsonSchema, sourceTypeEnum } from '@/lib/validation';
+import { ZodError } from 'zod';
+import { createReadStream, stat } from 'fs';
+import { promisify } from 'util';
+import fileType from 'file-type';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
+const statAsync = promisify(stat);
 
-function getUserId(request: NextRequest): string | null {
-  const token = request.cookies.get('auth-token')?.value;
-  if (!token) return null;
+// Allowed MIME types with their corresponding source types
+const ALLOWED_MIME_TYPES: Record<string, string> = {
+  'audio/mpeg': 'audio',
+  'audio/mp3': 'audio',
+  'audio/wav': 'audio',
+  'audio/x-wav': 'audio',
+  'audio/x-m4a': 'audio',
+  'audio/m4a': 'audio',
+  'audio/mp4': 'audio',
+  'video/mp4': 'video',
+  'video/quicktime': 'video',
+  'video/x-msvideo': 'video',
+  'application/pdf': 'pdf',
+};
+
+// Maximum file size: 100MB
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
+
+/**
+ * Validate file by reading magic bytes (not just extension)
+ */
+async function validateFileType(buffer: Buffer): Promise<{ valid: boolean; sourceType?: string }> {
   try {
-    const decoded = verify(token, JWT_SECRET) as { userId: string };
-    return decoded.userId;
+    const detectedType = await fileType.fromBuffer(buffer);
+    if (!detectedType) {
+      return { valid: false };
+    }
+    
+    // Map file-type MIME to our source types
+    const mimeToSourceType: Record<string, string> = {
+      'audio/mpeg': 'audio',
+      'audio/mp3': 'audio',
+      'audio/wav': 'audio',
+      'audio/x-m4a': 'audio',
+      'audio/m4a': 'audio',
+      'video/mp4': 'video',
+      'application/pdf': 'pdf',
+    };
+    
+    const sourceType = mimeToSourceType[detectedType.mime];
+    if (!sourceType) {
+      return { valid: false };
+    }
+    
+    return { valid: true, sourceType };
   } catch {
-    return null;
+    return { valid: false };
   }
 }
 
@@ -36,61 +82,91 @@ export async function POST(request: NextRequest) {
     // Handle FormData (file upload)
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
-      sourceType = formData.get('sourceType') as string;
+      const rawSourceType = formData.get('sourceType') as string;
       const file = formData.get('file') as File | null;
 
-      if (!sourceType) {
-        return NextResponse.json({ error: 'Source type required' }, { status: 400 });
+      // Validate source type
+      if (!rawSourceType || !['audio', 'video', 'pdf'].includes(rawSourceType)) {
+        return NextResponse.json({ error: 'Valid source type required (audio, video, pdf)' }, { status: 400 });
       }
 
-      if (['audio', 'video', 'pdf'].includes(sourceType) && !file) {
+      if (!file) {
         return NextResponse.json({ error: 'File upload required' }, { status: 400 });
       }
 
-      // Save uploaded file
-      if (file) {
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-
-        // Create uploads directory if it doesn't exist
-        const uploadDir = path.join(process.cwd(), 'uploads', userId);
-        if (!existsSync(uploadDir)) {
-          await mkdir(uploadDir, { recursive: true });
-        }
-
-        // Generate unique filename
-        const timestamp = Date.now();
-        const ext = file.name.split('.').pop();
-        const filename = `${sourceType}-${timestamp}.${ext}`;
-        const filepath = path.join(uploadDir, filename);
-
-        await writeFile(filepath, buffer);
-        sourceFile = filepath;
-        title = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json({ error: 'File too large. Maximum size is 100MB.' }, { status: 400 });
       }
+
+      // Read file and validate type by magic bytes
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      
+      const typeValidation = await validateFileType(buffer);
+      if (!typeValidation.valid || typeValidation.sourceType !== rawSourceType) {
+        return NextResponse.json({ 
+          error: `Invalid file type. Expected ${rawSourceType}, but file content doesn't match.` 
+        }, { status: 400 });
+      }
+
+      // Create uploads directory if it doesn't exist
+      const uploadDir = path.join(process.cwd(), 'uploads', userId);
+      if (!existsSync(uploadDir)) {
+        await mkdir(uploadDir, { recursive: true });
+      }
+
+      // Generate secure filename using crypto
+      const crypto = await import('crypto');
+      const randomId = crypto.randomBytes(16).toString('hex');
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+      const filename = `${rawSourceType}-${randomId}.${ext}`;
+      const filepath = path.join(uploadDir, filename);
+
+      await writeFile(filepath, buffer);
+      sourceFile = filepath;
+      sourceType = rawSourceType;
+      title = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
     } 
     // Handle JSON (YouTube URL)
     else {
-      const body = await request.json();
-      sourceType = body.sourceType;
-      sourceUrl = body.sourceUrl;
-
-      if (!sourceType) {
-        return NextResponse.json({ error: 'Source type required' }, { status: 400 });
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
       }
 
-      if (sourceType === 'youtube' && !sourceUrl) {
-        return NextResponse.json({ error: 'YouTube URL required' }, { status: 400 });
+      // Validate input
+      const validated = createContentJsonSchema.safeParse(body);
+      if (!validated.success) {
+        return NextResponse.json({ error: 'Invalid input', details: validated.error.errors }, { status: 400 });
       }
 
-      // Get video title for YouTube
-      if (sourceType === 'youtube' && sourceUrl) {
+      sourceType = validated.data.sourceType;
+      sourceUrl = validated.data.sourceUrl;
+
+      if (sourceType === 'youtube') {
+        if (!sourceUrl) {
+          return NextResponse.json({ error: 'YouTube URL required' }, { status: 400 });
+        }
+
+        // Validate YouTube URL and extract video ID
+        const videoId = validateVideoId(sourceUrl);
+        if (!videoId) {
+          return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 });
+        }
+
+        // Get video title for YouTube
         try {
           const videoInfo = await getVideoInfo(sourceUrl);
           title = videoInfo.title;
         } catch (e) {
           console.error('Failed to fetch video info:', e);
+          return NextResponse.json({ error: 'Failed to fetch video info. Please check the URL.' }, { status: 400 });
         }
+      } else if (!sourceUrl) {
+        return NextResponse.json({ error: 'Source URL required' }, { status: 400 });
       }
     }
 
@@ -109,7 +185,7 @@ export async function POST(request: NextRequest) {
     // For demo: Auto-generate mock outputs asynchronously
     const contentId = content.id;
     
-    fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/content/${contentId}/generate`, {
+    fetch(`${config.appUrl}/api/content/${contentId}/generate`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -142,9 +218,9 @@ export async function GET(request: NextRequest) {
     const contentId = searchParams.get('contentId');
 
     if (contentId) {
-      // Get single content with outputs
+      // Get single content with outputs - MUST verify ownership
       const content = await prisma.content.findFirst({
-        where: { id: contentId, userId },
+        where: { id: contentId, userId }, // ✅ Enforce ownership
         include: { 
           outputs: true,
           _count: { select: { outputs: true } }
