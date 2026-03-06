@@ -2,21 +2,23 @@ FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat openssl openssl-dev
+# Install specific OpenSSL version that Prisma needs
+RUN apk add --no-cache libc6-compat openssl1.1-compat
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 RUN npm ci
 
-# Generate Prisma Client
+# Generate Prisma Client with correct binary targets
 RUN npx prisma generate
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 
-RUN apk add --no-cache openssl openssl-dev
+# Install OpenSSL compatibility
+RUN apk add --no-cache openssl1.1-compat
 
 # Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
@@ -25,7 +27,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
 
-# Generate Prisma Client again (for production build)
+# Generate Prisma Client again
 RUN npx prisma generate
 
 # Build the application
@@ -35,7 +37,8 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
-RUN apk add --no-cache openssl openssl-dev
+# Install OpenSSL compatibility layer
+RUN apk add --no-cache openssl1.1-compat
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
