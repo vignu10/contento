@@ -1,18 +1,24 @@
+# Force cache invalidation - v2
 FROM node:20-slim AS base
 
 # Install dependencies only when needed
 FROM base AS deps
+# Cache bust: force rebuild
+ARG CACHE_BUST=1
 RUN apt-get update && apt-get install -y \
     libc6 \
     openssl \
+    libssl3 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
+
+# Clean install
 RUN npm ci
 
-# Generate Prisma Client
+# Generate Prisma Client for Debian
 RUN npx prisma generate
 
 # Rebuild the source code only when needed
@@ -21,6 +27,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     openssl \
+    libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependencies
@@ -30,7 +37,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
 
-# Generate Prisma Client again
+# Generate Prisma Client again for production
 RUN npx prisma generate
 
 # Build the application
@@ -42,6 +49,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     openssl \
+    libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV production
@@ -57,12 +65,15 @@ COPY --from=builder /app/public ./public
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
-# Automatically leverage output traces to reduce image size
+# Copy the standalone build
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy Prisma files explicitly
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 
 # Create uploads directory
 RUN mkdir -p /app/uploads && chown -R nextjs:nodejs /app/uploads
