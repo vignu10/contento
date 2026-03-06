@@ -1,16 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verify } from 'jsonwebtoken';
 import { prisma } from '@/lib/db';
 import { contentQueue, JOB_TYPES } from '@/lib/queue';
 import { uploadFile, generateFileKey } from '@/lib/storage';
 import { getVideoInfo, extractVideoId } from '@/services/youtube';
 
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
+
+function getUserId(request: NextRequest): string | null {
+  const token = request.cookies.get('auth-token')?.value;
+  if (!token) return null;
+  try {
+    const decoded = verify(token, JWT_SECRET) as { userId: string };
+    return decoded.userId;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const sourceType = formData.get('sourceType') as string;
-    const sourceUrl = formData.get('sourceUrl') as string;
-    const file = formData.get('file') as File | null;
-    const userId = formData.get('userId') as string || 'demo-user'; // TODO: Get from auth
+    const userId = getUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { sourceType, sourceUrl } = body;
 
     // Validate input
     if (!sourceType) {
@@ -21,9 +37,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'YouTube URL required' }, { status: 400 });
     }
 
-    if (['audio', 'video', 'pdf'].includes(sourceType) && !file) {
-      return NextResponse.json({ error: 'File upload required' }, { status: 400 });
-    }
+    // File upload support (for future)
+    // const file = formData.get('file') as File | null;
+    // if (['audio', 'video', 'pdf'].includes(sourceType) && !file) {
+    //   return NextResponse.json({ error: 'File upload required' }, { status: 400 });
+    // }
 
     // Create content record
     let title = 'Untitled';
@@ -34,11 +52,12 @@ export async function POST(request: NextRequest) {
       title = videoInfo.title;
     }
 
-    if (file) {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      sourceFileKey = generateFileKey(userId, sourceType, file.name);
-      await uploadFile(sourceFileKey, buffer, file.type);
-    }
+    // File upload (for future implementation)
+    // if (file) {
+    //   const buffer = Buffer.from(await file.arrayBuffer());
+    //   sourceFileKey = generateFileKey(userId, sourceType, file.name);
+    //   await uploadFile(sourceFileKey, buffer, file.type);
+    // }
 
     const content = await prisma.content.create({
       data: {
@@ -51,14 +70,20 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Queue processing job
-    await contentQueue.add(JOB_TYPES.TRANSCRIBE, {
-      contentId: content.id,
-      userId,
-      sourceType,
-      sourceUrl,
-      sourceFile: sourceFileKey,
-    });
+    // Queue processing job (for now, we'll use mock generation)
+    // In production: await contentQueue.add(JOB_TYPES.TRANSCRIBE, {...})
+    
+    // For demo: Auto-generate mock outputs
+    const contentId = content.id;
+    
+    // Async generation (don't wait)
+    fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/content/${contentId}/generate`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Cookie': request.headers.get('cookie') || '',
+      },
+    }).catch(err => console.error('Background generation failed:', err));
 
     return NextResponse.json({
       success: true,
@@ -76,15 +101,22 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const userId = getUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const contentId = searchParams.get('contentId');
-    const userId = searchParams.get('userId') || 'demo-user';
 
     if (contentId) {
       // Get single content with outputs
-      const content = await prisma.content.findUnique({
-        where: { id: contentId },
-        include: { outputs: true },
+      const content = await prisma.content.findFirst({
+        where: { id: contentId, userId },
+        include: { 
+          outputs: true,
+          _count: { select: { outputs: true } }
+        },
       });
 
       if (!content) {
@@ -99,6 +131,7 @@ export async function GET(request: NextRequest) {
       where: { userId },
       orderBy: { createdAt: 'desc' },
       take: 50,
+      include: { _count: { select: { outputs: true } } },
     });
 
     return NextResponse.json({ contents });

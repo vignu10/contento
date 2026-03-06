@@ -32,7 +32,7 @@ export async function transcribeAudio(audioPath: string): Promise<TranscriptionR
 }
 
 export async function transcribeFromFile(file: Buffer, filename: string): Promise<TranscriptionResult> {
-  const fileObj = new File([file], filename);
+  const fileObj = new File([new Uint8Array(file)], filename);
   
   const transcription = await openai.audio.transcriptions.create({
     file: fileObj,

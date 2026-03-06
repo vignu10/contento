@@ -83,52 +83,52 @@ contentQueue.process(JOB_TYPES.GENERATE_OUTPUTS, async (job) => {
         data: {
           contentId,
           format: 'twitter_thread',
-          data: outputs.twitterThread,
+          data: JSON.stringify(outputs.twitterThread),
         },
       }),
       prisma.output.create({
         data: {
           contentId,
           format: 'linkedin_post',
-          data: { text: outputs.linkedinPost },
+          data: JSON.stringify({ text: outputs.linkedinPost }),
         },
       }),
       prisma.output.create({
         data: {
           contentId,
           format: 'newsletter',
-          data: { text: outputs.newsletter },
+          data: JSON.stringify({ text: outputs.newsletter }),
         },
       }),
       prisma.output.create({
         data: {
           contentId,
           format: 'tiktok_clip',
-          data: outputs.tiktokClips,
+          data: JSON.stringify(outputs.tiktokClips),
         },
       }),
       prisma.output.create({
         data: {
           contentId,
           format: 'quote_graphic',
-          data: outputs.quoteGraphics,
+          data: JSON.stringify(outputs.quoteGraphics),
         },
       }),
       prisma.output.create({
         data: {
           contentId,
           format: 'seo_summary',
-          data: { text: outputs.seoSummary },
+          data: JSON.stringify({ text: outputs.seoSummary }),
         },
       }),
       prisma.output.create({
         data: {
           contentId,
           format: 'instagram_caption',
-          data: { 
+          data: JSON.stringify({ 
             caption: outputs.instagramCaption,
             hashtags: outputs.hashtags,
-          },
+          }),
         },
       }),
     ];
