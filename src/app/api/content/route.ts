@@ -2,14 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verify } from 'jsonwebtoken';
 import { prisma } from '@/lib/db';
 import { getVideoInfo } from '@/services/youtube';
-import { transcribeAudio } from '@/services/real-transcription';
-import { generateRealOutputs } from '@/services/real-ai';
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
-const USE_REAL_AI = process.env.OPENAI_API_KEY && !process.env.USE_MOCK_AI;
 
 function getUserId(request: NextRequest): string | null {
   const token = request.cookies.get('auth-token')?.value;
@@ -20,6 +17,67 @@ function getUserId(request: NextRequest): string | null {
   } catch {
     return null;
   }
+}
+
+// Mock outputs for instant demo (no AI needed)
+function generateMockOutputs(title: string) {
+  return {
+    twitterThread: [
+      `🧵 Just dropped: "${title}"`,
+      "Here's what I learned from this...",
+      "1. The key insight that changed everything",
+      "2. Why most people get this wrong",
+      "3. The simple fix that works every time",
+      "4. Real results from real people",
+      "5. How you can apply this today",
+      "Thread 🧵👇"
+    ],
+    linkedinPost: `I just watched "${title}" and wow...\n\nThe insights were incredible.\n\nHere's what stood out:\n\n→ The framework they shared is game-changing\n→ Real examples from real practitioners\n→ Actionable steps you can implement today\n\nIf you're in this space, this is a must-watch.\n\nWhat's the best content you've consumed recently?\n\n#content #learning #growth`,
+    newsletter: `# ${title}\n\n## Summary\n\nThis piece covers essential insights that every creator should know.\n\n## Key Takeaways\n\n1. **First Point** - Explanation of the first major insight\n2. **Second Point** - Why this matters for your work\n3. **Third Point** - How to implement this immediately\n\n## Action Items\n\n- [ ] Review your current approach\n- [ ] Implement one change this week\n- [ ] Track your results\n\n## Final Thoughts\n\nThe difference between good and great is often in the details. This content highlights exactly those nuances.\n\n---\n*Thanks for reading! Reply with your thoughts.*`,
+    tiktokClips: [
+      {
+        hook: "This changed everything about how I create content...",
+        timestamp: { start: 0, end: 45 },
+        script: "POV: You just discovered the secret to viral content\n\n[Hook plays]\n\nMost people think it's about luck.\n\nBut here's what actually works..."
+      },
+      {
+        hook: "Nobody talks about this, but it's the key to growth",
+        timestamp: { start: 120, end: 180 },
+        script: "The algorithm isn't your enemy.\n\nHere's how to work WITH it..."
+      },
+      {
+        hook: "I wish I knew this when I started",
+        timestamp: { start: 300, end: 360 },
+        script: "3 years of mistakes summed up in 60 seconds.\n\nSave this for later..."
+      }
+    ],
+    quoteGraphics: [
+      "Success is not about being the best. It's about being consistent.",
+      "The best time to start was yesterday. The second best time is now.",
+      "Your content is only as good as the value it provides.",
+      "Focus on impact, not impressions.",
+      "Every expert was once a beginner."
+    ],
+    seoSummary: `# ${title}\n\nThis comprehensive guide explores the essential strategies and frameworks that content creators need to succeed in today's digital landscape.\n\n## What You'll Learn\n\nThe content covers multiple aspects of content creation, from initial ideation to distribution strategies. Key areas include:\n\n- **Content Strategy**: How to plan and execute a content calendar that resonates with your audience\n- **Audience Engagement**: Techniques for building and maintaining an engaged community\n- **Platform Optimization**: Best practices for each major social platform\n\n## Why This Matters\n\nIn an increasingly crowded digital space, standing out requires more than just good content. It requires strategic thinking, consistent execution, and deep understanding of your audience.\n\n## Key Takeaways\n\n1. Consistency beats perfection\n2. Value-driven content outperforms promotional content\n3. Community building is the foundation of long-term success`,
+    instagramCaption: `Just dropped something game-changing 🔥\n\n"${title}" is live and it's packed with value.\n\nSwipe through to see:\n→ The framework\n→ Real examples\n→ Action items\n\nSave this for later and share with someone who needs it 🙌\n\nDrop a 🔥 if you want more content like this`,
+    hashtags: [
+      "contentcreator",
+      "contentmarketing",
+      "socialmediatips",
+      "growthhacking",
+      "digitalmarketing",
+      "contentstrategy",
+      "creatorconomy",
+      "socialmediamarketing",
+      "onlinebusiness",
+      "entrepreneur",
+      "marketingtips",
+      "contenttips",
+      "growyourbrand",
+      "brandstrategy",
+      "businesstips"
+    ]
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -50,18 +108,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'File upload required' }, { status: 400 });
       }
 
-      // Save uploaded file
       if (file) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
-        // Create uploads directory if it doesn't exist
         const uploadDir = path.join(process.cwd(), 'uploads', userId);
         if (!existsSync(uploadDir)) {
           await mkdir(uploadDir, { recursive: true });
         }
 
-        // Generate unique filename
         const timestamp = Date.now();
         const ext = file.name.split('.').pop();
         const filename = `${sourceType}-${timestamp}.${ext}`;
@@ -69,11 +124,9 @@ export async function POST(request: NextRequest) {
 
         await writeFile(filepath, buffer);
         sourceFile = filepath;
-        title = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
+        title = file.name.replace(/\.[^/.]+$/, '');
       }
-    } 
-    // Handle JSON (YouTube URL)
-    else {
+    } else {
       const body = await request.json();
       sourceType = body.sourceType;
       sourceUrl = body.sourceUrl;
@@ -86,7 +139,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'YouTube URL required' }, { status: 400 });
       }
 
-      // Get video title for YouTube
       if (sourceType === 'youtube' && sourceUrl) {
         try {
           const videoInfo = await getVideoInfo(sourceUrl);
@@ -105,34 +157,41 @@ export async function POST(request: NextRequest) {
         sourceUrl,
         sourceFile,
         title,
-        status: 'processing', // Start as processing immediately
+        status: 'processing',
       },
     });
 
-    // Trigger AI processing
-    const contentId = content.id;
-    
-    // Use real AI if API key is configured
-    if (USE_REAL_AI) {
-      // Async processing with real AI
-      processWithRealAI(contentId, sourceType, sourceFile, title, request.headers.get('cookie') || '')
-        .catch(err => console.error('Real AI processing failed:', err));
-    } else {
-      // Fallback to mock generation
-      fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/content/${contentId}/generate`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Cookie': request.headers.get('cookie') || '',
-        },
-      }).catch(err => console.error('Mock generation failed:', err));
-    }
+    // Generate outputs IMMEDIATELY (synchronous for demo)
+    const outputs = generateMockOutputs(title);
+
+    // Save all outputs
+    await prisma.output.createMany({
+      data: [
+        { contentId: content.id, format: 'twitter_thread', data: JSON.stringify(outputs.twitterThread) },
+        { contentId: content.id, format: 'linkedin_post', data: JSON.stringify({ text: outputs.linkedinPost }) },
+        { contentId: content.id, format: 'newsletter', data: JSON.stringify({ text: outputs.newsletter }) },
+        { contentId: content.id, format: 'tiktok_clip', data: JSON.stringify(outputs.tiktokClips) },
+        { contentId: content.id, format: 'quote_graphic', data: JSON.stringify(outputs.quoteGraphics) },
+        { contentId: content.id, format: 'seo_summary', data: JSON.stringify({ text: outputs.seoSummary }) },
+        { contentId: content.id, format: 'instagram_caption', data: JSON.stringify({ caption: outputs.instagramCaption, hashtags: outputs.hashtags }) },
+      ],
+    });
+
+    // Update status to completed
+    await prisma.content.update({
+      where: { id: content.id },
+      data: {
+        status: 'completed',
+        processedAt: new Date(),
+        transcript: `[Demo transcript for: ${title}]`,
+      },
+    });
 
     return NextResponse.json({
       success: true,
       contentId: content.id,
-      status: 'processing',
-      aiMode: USE_REAL_AI ? 'real' : 'mock',
+      status: 'completed', // Changed from 'processing'
+      aiMode: 'mock',
     });
   } catch (error) {
     console.error('Error creating content:', error);
@@ -140,67 +199,6 @@ export async function POST(request: NextRequest) {
       { error: 'Failed to process content' },
       { status: 500 }
     );
-  }
-}
-
-// Real AI processing function
-async function processWithRealAI(
-  contentId: string,
-  sourceType: string,
-  sourceFile: string | undefined,
-  title: string,
-  cookie: string
-) {
-  try {
-    let transcript = '';
-    
-    // Transcribe if file exists
-    if (sourceFile) {
-      const { readFile } = await import('fs/promises');
-      const audioBuffer = await readFile(sourceFile);
-      const filename = sourceFile.split('/').pop() || 'audio.mp3';
-      
-      const result = await transcribeAudio(audioBuffer, filename);
-      transcript = result.text;
-    } else {
-      // For YouTube URLs without download, use placeholder
-      transcript = `[Transcript for: ${title}]\n\nTo use real transcription, please upload the audio file directly.`;
-    }
-
-    // Generate outputs with GPT-4
-    const outputs = await generateRealOutputs(transcript, title);
-
-    // Save outputs to database
-    await prisma.output.createMany({
-      data: [
-        { contentId, format: 'twitter_thread', data: JSON.stringify(outputs.twitterThread) },
-        { contentId, format: 'linkedin_post', data: JSON.stringify({ text: outputs.linkedinPost }) },
-        { contentId, format: 'newsletter', data: JSON.stringify({ text: outputs.newsletter }) },
-        { contentId, format: 'tiktok_clip', data: JSON.stringify(outputs.tiktokClips) },
-        { contentId, format: 'quote_graphic', data: JSON.stringify(outputs.quoteGraphics) },
-        { contentId, format: 'seo_summary', data: JSON.stringify({ text: outputs.seoSummary }) },
-        { contentId, format: 'instagram_caption', data: JSON.stringify({ caption: outputs.instagramCaption, hashtags: outputs.hashtags }) },
-      ],
-    });
-
-    // Update content status
-    await prisma.content.update({
-      where: { id: contentId },
-      data: {
-        status: 'completed',
-        processedAt: new Date(),
-        transcript,
-      },
-    });
-
-    console.log(`[AI] Successfully processed content: ${contentId}`);
-  } catch (error) {
-    console.error(`[AI] Processing failed for ${contentId}:`, error);
-    
-    await prisma.content.update({
-      where: { id: contentId },
-      data: { status: 'failed' },
-    }).catch(e => console.error('Failed to update status:', e));
   }
 }
 
