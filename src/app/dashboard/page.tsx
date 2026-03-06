@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import FileUpload from '@/components/FileUpload';
 
 interface Content {
   id: string;
@@ -28,6 +29,7 @@ export default function Dashboard() {
 
   // YouTube input state
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [activeTab, setActiveTab] = useState<'youtube' | 'file'>('youtube');
 
   useEffect(() => {
     fetchUser();
@@ -73,6 +75,33 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Failed to process:', error);
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  async function handleFileUpload(file: File, sourceType: string) {
+    setProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('sourceType', sourceType);
+      formData.append('userId', user?.id || '');
+
+      const res = await fetch('/api/content', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (res.ok) {
+        fetchContents();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to upload file');
+      }
+    } catch (error) {
+      console.error('Failed to upload:', error);
+      alert('Failed to upload file');
     } finally {
       setProcessing(false);
     }
@@ -129,23 +158,54 @@ export default function Dashboard() {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8">
           <h2 className="text-xl font-semibold mb-4">Process New Content</h2>
           
-          {/* YouTube Input */}
-          <form onSubmit={handleYoutubeSubmit} className="flex gap-3">
-            <input
-              type="url"
-              value={youtubeUrl}
-              onChange={(e) => setYoutubeUrl(e.target.value)}
-              placeholder="Paste YouTube URL..."
-              className="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-2 focus:ring-primary-500 outline-none"
-            />
+          {/* Tab Switcher */}
+          <div className="flex gap-2 mb-6">
             <button
-              type="submit"
-              disabled={processing}
-              className="px-6 py-3 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+              onClick={() => setActiveTab('youtube')}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                activeTab === 'youtube'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
             >
-              {processing ? 'Processing...' : 'Process'}
+              🎬 YouTube URL
             </button>
-          </form>
+            <button
+              onClick={() => setActiveTab('file')}
+              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+                activeTab === 'file'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              📁 Upload File
+            </button>
+          </div>
+
+          {/* YouTube Input */}
+          {activeTab === 'youtube' && (
+            <form onSubmit={handleYoutubeSubmit} className="flex gap-3">
+              <input
+                type="url"
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                placeholder="Paste YouTube URL..."
+                className="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-2 focus:ring-primary-500 outline-none"
+              />
+              <button
+                type="submit"
+                disabled={processing}
+                className="px-6 py-3 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+              >
+                {processing ? 'Processing...' : 'Process'}
+              </button>
+            </form>
+          )}
+
+          {/* File Upload */}
+          {activeTab === 'file' && (
+            <FileUpload onUpload={handleFileUpload} processing={processing} />
+          )}
         </div>
 
         {/* Content History */}
