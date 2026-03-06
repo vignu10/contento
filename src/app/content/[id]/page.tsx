@@ -3,11 +3,34 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { 
+  ArrowLeft, 
+  Loader2, 
+  Copy, 
+  Check, 
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Twitter,
+  Linkedin,
+  Mail,
+  Video,
+  Quote,
+  FileText,
+  Instagram,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
 
 interface Output {
   id: string;
   format: string;
-  data: string;  // JSON string
+  data: string;
   editedData: string | null;
   isExported: boolean;
 }
@@ -28,6 +51,7 @@ interface Content {
   status: string;
   transcript: string | null;
   outputs: Output[];
+  createdAt: string;
 }
 
 export default function ContentDetail() {
@@ -37,13 +61,12 @@ export default function ContentDetail() {
 
   const [content, setContent] = useState<Content | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>('twitter_thread');
-  const [editing, setEditing] = useState(false);
-  const [editedData, setEditedData] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState('twitter_thread');
+  const [copied, setCopied] = useState<string | null>(null);
+  const [showTranscript, setShowTranscript] = useState(false);
 
   useEffect(() => {
     fetchContent();
-    // Poll for updates if processing
     const interval = setInterval(() => {
       if (content?.status === 'processing' || content?.status === 'pending') {
         fetchContent();
@@ -59,9 +82,66 @@ export default function ContentDetail() {
     setLoading(false);
   }
 
-  function copyToClipboard(text: string) {
+  function copyToClipboard(text: string, id: string) {
     navigator.clipboard.writeText(text);
-    // Could add toast notification here
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  function getStatusBadge(status: string) {
+    switch (status) {
+      case 'completed':
+        return (
+          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Completed
+          </Badge>
+        );
+      case 'processing':
+        return (
+          <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white">
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            Processing
+          </Badge>
+        );
+      case 'failed':
+        return (
+          <Badge variant="destructive">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Failed
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending
+          </Badge>
+        );
+    }
+  }
+
+  function CopyButton({ text, id }: { text: string; id: string }) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => copyToClipboard(text, id)}
+        className="h-8"
+      >
+        {copied === id ? (
+          <>
+            <Check className="h-3 w-3 mr-1" />
+            Copied!
+          </>
+        ) : (
+          <>
+            <Copy className="h-3 w-3 mr-1" />
+            Copy
+          </>
+        )}
+      </Button>
+    );
   }
 
   function renderOutput(output: Output) {
@@ -72,45 +152,54 @@ export default function ContentDetail() {
         return (
           <div className="space-y-4">
             {Array.isArray(data) && data.map((tweet: string, i: number) => (
-              <div key={i} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <p className="whitespace-pre-wrap">{tweet}</p>
-                <button
-                  onClick={() => copyToClipboard(tweet)}
-                  className="mt-2 text-sm text-primary-500 hover:text-primary-600"
-                >
-                  Copy
-                </button>
-              </div>
+              <Card key={i}>
+                <CardContent className="p-4">
+                  <p className="whitespace-pre-wrap mb-3">{tweet}</p>
+                  <CopyButton text={tweet} id={`tweet-${i}`} />
+                </CardContent>
+              </Card>
             ))}
           </div>
         );
 
       case 'linkedin_post':
-      case 'newsletter':
-      case 'seo_summary':
         return (
-          <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <p className="whitespace-pre-wrap">{data.text || data}</p>
-            <button
-              onClick={() => copyToClipboard(data.text || data)}
-              className="mt-4 text-sm text-primary-500 hover:text-primary-600"
-            >
-              Copy to clipboard
-            </button>
-          </div>
+          <Card>
+            <CardContent className="p-4">
+              <p className="whitespace-pre-wrap mb-4">{data.text || data}</p>
+              <CopyButton text={data.text || data} id="linkedin" />
+            </CardContent>
+          </Card>
+        );
+
+      case 'newsletter':
+        return (
+          <Card>
+            <CardContent className="p-6">
+              <div className="prose prose-sm max-w-none dark:prose-invert">
+                <p className="whitespace-pre-wrap">{data.text || data}</p>
+              </div>
+              <Separator className="my-4" />
+              <CopyButton text={data.text || data} id="newsletter" />
+            </CardContent>
+          </Card>
         );
 
       case 'tiktok_clip':
         return (
           <div className="space-y-4">
             {Array.isArray(data) && data.map((clip: any, i: number) => (
-              <div key={i} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <h4 className="font-medium text-lg mb-2">{clip.hook}</h4>
-                <p className="text-sm text-gray-500 mb-2">
-                  ⏱ {clip.timestamp?.start}s - {clip.timestamp?.end}s
-                </p>
-                <p className="whitespace-pre-wrap">{clip.script}</p>
-              </div>
+              <Card key={i}>
+                <CardContent className="p-4">
+                  <h4 className="font-semibold text-lg mb-2">{clip.hook}</h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-2">
+                    <Video className="h-3 w-3" />
+                    {clip.timestamp?.start}s - {clip.timestamp?.end}s
+                  </p>
+                  <p className="whitespace-pre-wrap mb-3">{clip.script}</p>
+                  <CopyButton text={clip.script} id={`clip-${i}`} />
+                </CardContent>
+              </Card>
             ))}
           </div>
         );
@@ -119,44 +208,74 @@ export default function ContentDetail() {
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {Array.isArray(data) && data.map((quote: string, i: number) => (
-              <div key={i} className="p-6 bg-gradient-to-br from-primary-500 to-primary-700 text-white rounded-xl">
-                <p className="text-lg font-medium">"{quote}"</p>
-                <button
-                  onClick={() => copyToClipboard(quote)}
-                  className="mt-4 text-sm text-white/80 hover:text-white"
-                >
-                  Copy quote
-                </button>
-              </div>
+              <Card key={i} className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-0">
+                <CardContent className="p-6">
+                  <Quote className="h-6 w-6 mb-3 opacity-50" />
+                  <p className="text-lg font-medium mb-4">"{quote}"</p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => copyToClipboard(quote, `quote-${i}`)}
+                    className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                  >
+                    {copied === `quote-${i}` ? (
+                      <>
+                        <Check className="h-3 w-3 mr-1" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3 mr-1" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
             ))}
           </div>
         );
 
+      case 'seo_summary':
+        return (
+          <Card>
+            <CardContent className="p-6">
+              <div className="prose prose-sm max-w-none dark:prose-invert">
+                <p className="whitespace-pre-wrap">{data.text || data}</p>
+              </div>
+              <Separator className="my-4" />
+              <CopyButton text={data.text || data} id="seo" />
+            </CardContent>
+          </Card>
+        );
+
       case 'instagram_caption':
         return (
-          <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <p className="whitespace-pre-wrap mb-4">{data.caption}</p>
-            <div className="flex flex-wrap gap-2">
-              {Array.isArray(data.hashtags) && data.hashtags.map((tag: string, i: number) => (
-                <span key={i} className="px-2 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded text-sm">
-                  #{tag}
-                </span>
-              ))}
-            </div>
-            <button
-              onClick={() => copyToClipboard(`${data.caption}\n\n${data.hashtags.map((t: string) => `#${t}`).join(' ')}`)}
-              className="mt-4 text-sm text-primary-500 hover:text-primary-600"
-            >
-              Copy caption + hashtags
-            </button>
-          </div>
+          <Card>
+            <CardContent className="p-4">
+              <p className="whitespace-pre-wrap mb-4">{data.caption}</p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {Array.isArray(data.hashtags) && data.hashtags.map((tag: string, i: number) => (
+                  <Badge key={i} variant="secondary" className="text-xs">
+                    #{tag}
+                  </Badge>
+                ))}
+              </div>
+              <CopyButton 
+                text={`${data.caption}\n\n${data.hashtags.map((t: string) => `#${t}`).join(' ')}`} 
+                id="instagram" 
+              />
+            </CardContent>
+          </Card>
         );
 
       default:
         return (
-          <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <pre className="whitespace-pre-wrap">{JSON.stringify(data, null, 2)}</pre>
-          </div>
+          <Card>
+            <CardContent className="p-4">
+              <pre className="whitespace-pre-wrap text-sm">{JSON.stringify(data, null, 2)}</pre>
+            </CardContent>
+          </Card>
         );
     }
   }
@@ -164,7 +283,7 @@ export default function ContentDetail() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
+        <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
       </div>
     );
   }
@@ -172,100 +291,132 @@ export default function ContentDetail() {
   if (!content) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Content not found</div>
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">Content not found</h2>
+          <Button onClick={() => router.push('/dashboard')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </div>
       </div>
     );
   }
 
   const formatTabs = [
-    { id: 'twitter_thread', label: 'Twitter Thread', icon: '🐦' },
-    { id: 'linkedin_post', label: 'LinkedIn', icon: '💼' },
-    { id: 'newsletter', label: 'Newsletter', icon: '📧' },
-    { id: 'tiktok_clip', label: 'TikTok Clips', icon: '🎬' },
-    { id: 'quote_graphic', label: 'Quotes', icon: '💬' },
-    { id: 'seo_summary', label: 'SEO Summary', icon: '🔍' },
-    { id: 'instagram_caption', label: 'Instagram', icon: '📸' },
+    { id: 'twitter_thread', label: 'Twitter Thread', icon: Twitter },
+    { id: 'linkedin_post', label: 'LinkedIn', icon: Linkedin },
+    { id: 'newsletter', label: 'Newsletter', icon: Mail },
+    { id: 'tiktok_clip', label: 'TikTok Clips', icon: Video },
+    { id: 'quote_graphic', label: 'Quotes', icon: Quote },
+    { id: 'seo_summary', label: 'SEO Summary', icon: FileText },
+    { id: 'instagram_caption', label: 'Instagram', icon: Instagram },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-4">
-          <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
-            ← Back
-          </Link>
-          <h1 className="text-xl font-bold truncate">{content.title || 'Untitled'}</h1>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-            content.status === 'completed' ? 'bg-green-100 text-green-800' :
-            content.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
-            'bg-gray-100 text-gray-800'
-          }`}>
-            {content.status}
-          </span>
+      <header className="border-b bg-white/80 backdrop-blur-sm dark:bg-slate-900/80 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <Separator orientation="vertical" className="h-6" />
+              <div>
+                <h1 className="text-xl font-bold truncate max-w-md">
+                  {content.title || 'Untitled'}
+                </h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {content.sourceType.toUpperCase()} • {new Date(content.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+            {getStatusBadge(content.status)}
+          </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Status Banner */}
         {(content.status === 'pending' || content.status === 'processing') && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
-            <p className="text-yellow-800 dark:text-yellow-200">
-              ⏳ Processing your content... This usually takes 30-60 seconds. Page will auto-refresh.
-            </p>
-          </div>
+          <Card className="mb-6 border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-900">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-yellow-600" />
+                <p className="text-yellow-800 dark:text-yellow-200">
+                  Processing your content... This usually takes 30-60 seconds. Page will auto-refresh.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        {/* Output Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 gap-2">
+            {formatTabs.map((tab) => {
+              const hasOutput = content.outputs.some(o => o.format === tab.id);
+              return (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  disabled={!hasOutput}
+                  className="flex items-center gap-2"
+                >
+                  <tab.icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+
           {formatTabs.map((tab) => {
-            const hasOutput = content.outputs.some(o => o.format === tab.id);
+            const output = content.outputs.find(o => o.format === tab.id);
             return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                disabled={!hasOutput}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-primary-500 text-white'
-                    : hasOutput
-                    ? 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                {tab.icon} {tab.label}
-              </button>
+              <TabsContent key={tab.id} value={tab.id}>
+                {output ? (
+                  renderOutput(output)
+                ) : (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <p className="text-slate-500 dark:text-slate-400">
+                        Output not available yet
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
             );
           })}
-        </div>
-
-        {/* Output Content */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          {(() => {
-            const output = content.outputs.find(o => o.format === activeTab);
-            if (!output) {
-              return (
-                <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-                  Output not available yet
-                </p>
-              );
-            }
-            return renderOutput(output);
-          })()}
-        </div>
+        </Tabs>
 
         {/* Transcript */}
         {content.transcript && (
-          <details className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-            <summary className="p-6 cursor-pointer font-medium">
-              View Full Transcript
-            </summary>
-            <div className="px-6 pb-6">
-              <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 max-h-96 overflow-y-auto">
-                {content.transcript}
-              </p>
-            </div>
-          </details>
+          <Card className="mt-8">
+            <CardHeader>
+              <Button
+                variant="ghost"
+                onClick={() => setShowTranscript(!showTranscript)}
+                className="w-full justify-between"
+              >
+                <CardTitle className="text-lg">Full Transcript</CardTitle>
+                {showTranscript ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            </CardHeader>
+            {showTranscript && (
+              <CardContent>
+                <p className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 max-h-96 overflow-y-auto">
+                  {content.transcript}
+                </p>
+              </CardContent>
+            )}
+          </Card>
         )}
       </main>
     </div>
