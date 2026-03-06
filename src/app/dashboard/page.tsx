@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { toast } from 'sonner';
 import { 
   Youtube, 
   Upload, 
@@ -22,6 +23,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
+import { FadeIn } from '@/components/animations';
 import FileUpload from '@/components/FileUpload';
 
 interface Content {
@@ -74,6 +76,8 @@ export default function Dashboard() {
     if (!youtubeUrl.trim()) return;
 
     setProcessing(true);
+    toast.loading('Processing your content...');
+
     try {
       const res = await fetch('/api/content', {
         method: 'POST',
@@ -85,12 +89,21 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         setYoutubeUrl('');
         fetchContents();
+        toast.success(data.aiMode === 'real' 
+          ? 'Processing with real AI! This may take 1-2 minutes.' 
+          : 'Processing with demo data. Add OPENAI_API_KEY for real AI.'
+        );
+      } else {
+        toast.error(data.error || 'Failed to process content');
       }
     } catch (error) {
       console.error('Failed to process:', error);
+      toast.error('Failed to process content. Please try again.');
     } finally {
       setProcessing(false);
     }
@@ -98,6 +111,8 @@ export default function Dashboard() {
 
   async function handleFileUpload(file: File, sourceType: string) {
     setProcessing(true);
+    toast.loading('Uploading and processing your file...');
+
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -109,15 +124,20 @@ export default function Dashboard() {
         body: formData,
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         fetchContents();
+        toast.success(data.aiMode === 'real'
+          ? 'File uploaded! Real AI processing started (1-2 min).'
+          : 'File uploaded! Using demo mode - add OPENAI_API_KEY for real AI.'
+        );
       } else {
-        const data = await res.json();
-        alert(data.error || 'Failed to upload file');
+        toast.error(data.error || 'Failed to upload file');
       }
     } catch (error) {
       console.error('Failed to upload:', error);
-      alert('Failed to upload file');
+      toast.error('Failed to upload file. Please try again.');
     } finally {
       setProcessing(false);
     }

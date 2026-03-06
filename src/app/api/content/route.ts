@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verify } from 'jsonwebtoken';
 import { prisma } from '@/lib/db';
 import { getVideoInfo } from '@/services/youtube';
+import { transcribeAudio } from '@/services/real-transcription';
+import { generateRealOutputs } from '@/services/real-ai';
 import { writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
+const USE_REAL_AI = process.env.OPENAI_API_KEY && !process.env.USE_MOCK_AI;
 
 function getUserId(request: NextRequest): string | null {
   const token = request.cookies.get('auth-token')?.value;
@@ -102,25 +105,34 @@ export async function POST(request: NextRequest) {
         sourceUrl,
         sourceFile,
         title,
-        status: 'pending',
+        status: 'processing', // Start as processing immediately
       },
     });
 
-    // For demo: Auto-generate mock outputs asynchronously
+    // Trigger AI processing
     const contentId = content.id;
     
-    fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/content/${contentId}/generate`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Cookie': request.headers.get('cookie') || '',
-      },
-    }).catch(err => console.error('Background generation failed:', err));
+    // Use real AI if API key is configured
+    if (USE_REAL_AI) {
+      // Async processing with real AI
+      processWithRealAI(contentId, sourceType, sourceFile, title, request.headers.get('cookie') || '')
+        .catch(err => console.error('Real AI processing failed:', err));
+    } else {
+      // Fallback to mock generation
+      fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/content/${contentId}/generate`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cookie': request.headers.get('cookie') || '',
+        },
+      }).catch(err => console.error('Mock generation failed:', err));
+    }
 
     return NextResponse.json({
       success: true,
       contentId: content.id,
       status: 'processing',
+      aiMode: USE_REAL_AI ? 'real' : 'mock',
     });
   } catch (error) {
     console.error('Error creating content:', error);
@@ -128,6 +140,67 @@ export async function POST(request: NextRequest) {
       { error: 'Failed to process content' },
       { status: 500 }
     );
+  }
+}
+
+// Real AI processing function
+async function processWithRealAI(
+  contentId: string,
+  sourceType: string,
+  sourceFile: string | undefined,
+  title: string,
+  cookie: string
+) {
+  try {
+    let transcript = '';
+    
+    // Transcribe if file exists
+    if (sourceFile) {
+      const { readFile } = await import('fs/promises');
+      const audioBuffer = await readFile(sourceFile);
+      const filename = sourceFile.split('/').pop() || 'audio.mp3';
+      
+      const result = await transcribeAudio(audioBuffer, filename);
+      transcript = result.text;
+    } else {
+      // For YouTube URLs without download, use placeholder
+      transcript = `[Transcript for: ${title}]\n\nTo use real transcription, please upload the audio file directly.`;
+    }
+
+    // Generate outputs with GPT-4
+    const outputs = await generateRealOutputs(transcript, title);
+
+    // Save outputs to database
+    await prisma.output.createMany({
+      data: [
+        { contentId, format: 'twitter_thread', data: JSON.stringify(outputs.twitterThread) },
+        { contentId, format: 'linkedin_post', data: JSON.stringify({ text: outputs.linkedinPost }) },
+        { contentId, format: 'newsletter', data: JSON.stringify({ text: outputs.newsletter }) },
+        { contentId, format: 'tiktok_clip', data: JSON.stringify(outputs.tiktokClips) },
+        { contentId, format: 'quote_graphic', data: JSON.stringify(outputs.quoteGraphics) },
+        { contentId, format: 'seo_summary', data: JSON.stringify({ text: outputs.seoSummary }) },
+        { contentId, format: 'instagram_caption', data: JSON.stringify({ caption: outputs.instagramCaption, hashtags: outputs.hashtags }) },
+      ],
+    });
+
+    // Update content status
+    await prisma.content.update({
+      where: { id: contentId },
+      data: {
+        status: 'completed',
+        processedAt: new Date(),
+        transcript,
+      },
+    });
+
+    console.log(`[AI] Successfully processed content: ${contentId}`);
+  } catch (error) {
+    console.error(`[AI] Processing failed for ${contentId}:`, error);
+    
+    await prisma.content.update({
+      where: { id: contentId },
+      data: { status: 'failed' },
+    }).catch(e => console.error('Failed to update status:', e));
   }
 }
 
@@ -142,7 +215,6 @@ export async function GET(request: NextRequest) {
     const contentId = searchParams.get('contentId');
 
     if (contentId) {
-      // Get single content with outputs
       const content = await prisma.content.findFirst({
         where: { id: contentId, userId },
         include: { 
@@ -158,7 +230,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ content });
     }
 
-    // Get all content for user
     const contents = await prisma.content.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
