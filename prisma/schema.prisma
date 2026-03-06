@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  passwordHash  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  contents      Content[]
+  usage         Usage[]
+  
+  @@map("users")
+}
+
+model Content {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Input
+  sourceType    String      // youtube, audio, video, blog, pdf
+  sourceUrl     String?
+  sourceFile    String?     // S3 key for uploaded files
+  title         String?
+  
+  // Processing
+  status        String      @default("pending") // pending, processing, completed, failed
+  transcript    String?     @db.Text
+  
+  // Timestamps
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  processedAt   DateTime?
+  
+  outputs       Output[]
+  
+  @@map("contents")
+}
+
+model Output {
+  id            String    @id @default(cuid())
+  contentId     String
+  content       Content   @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  
+  // Output details
+  format        String    // twitter_thread, linkedin_post, newsletter, tiktok_clip, quote_graphic, seo_summary, instagram_caption
+  data          Json      // The actual output content
+  editedData    Json?     // User-edited version
+  
+  // Status
+  isExported    Boolean   @default(false)
+  exportedAt    DateTime?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@map("outputs")
+}
+
+model Usage {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Billing period
+  month         Int       // 1-12
+  year         Int
+  
+  // Usage counts
+  contentsProcessed Int   @default(0)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@unique([userId, month, year])
+  @@map("usage")
+}
