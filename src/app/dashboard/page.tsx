@@ -1,8 +1,27 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { 
+  Youtube, 
+  Upload, 
+  FileText, 
+  Loader2, 
+  LogOut, 
+  Sparkles,
+  ArrowRight,
+  Clock,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 
 interface Content {
@@ -26,10 +45,7 @@ export default function Dashboard() {
   const [contents, setContents] = useState<Content[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-
-  // YouTube input state
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [activeTab, setActiveTab] = useState<'youtube' | 'file'>('youtube');
 
   useEffect(() => {
     fetchUser();
@@ -116,139 +132,221 @@ export default function Dashboard() {
     router.push('/');
   }
 
-  function getStatusColor(status: string) {
+  function getStatusBadge(status: string) {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'processing': return 'bg-yellow-100 text-yellow-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'completed':
+        return (
+          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Completed
+          </Badge>
+        );
+      case 'processing':
+        return (
+          <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white">
+            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+            Processing
+          </Badge>
+        );
+      case 'failed':
+        return (
+          <Badge variant="destructive">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Failed
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="outline">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending
+          </Badge>
+        );
     }
   }
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-primary-600">Contento</h1>
+      <header className="border-b bg-white/80 backdrop-blur-sm dark:bg-slate-900/80 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
+              <Sparkles className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
+                Contento
+              </h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400">AI Content Repurposing</p>
+            </div>
+          </div>
           <div className="flex items-center gap-4">
-            <span className="text-gray-600 dark:text-gray-300">
+            <span className="text-sm text-slate-600 dark:text-slate-300 hidden sm:block">
               {user?.name || user?.email}
             </span>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-            >
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
               Logout
-            </button>
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* New Content Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Process New Content</h2>
-          
-          {/* Tab Switcher */}
-          <div className="flex gap-2 mb-6">
-            <button
-              onClick={() => setActiveTab('youtube')}
-              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                activeTab === 'youtube'
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              🎬 YouTube URL
-            </button>
-            <button
-              onClick={() => setActiveTab('file')}
-              className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                activeTab === 'file'
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              📁 Upload File
-            </button>
-          </div>
-
-          {/* YouTube Input */}
-          {activeTab === 'youtube' && (
-            <form onSubmit={handleYoutubeSubmit} className="flex gap-3">
-              <input
-                type="url"
-                value={youtubeUrl}
-                onChange={(e) => setYoutubeUrl(e.target.value)}
-                placeholder="Paste YouTube URL..."
-                className="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 focus:ring-2 focus:ring-primary-500 outline-none"
-              />
-              <button
-                type="submit"
-                disabled={processing}
-                className="px-6 py-3 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
-              >
-                {processing ? 'Processing...' : 'Process'}
-              </button>
-            </form>
-          )}
-
-          {/* File Upload */}
-          {activeTab === 'file' && (
-            <FileUpload onUpload={handleFileUpload} processing={processing} />
-          )}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Hero Section */}
+        <div className="mb-8 text-center">
+          <h2 className="text-3xl font-bold mb-2">Transform Your Content</h2>
+          <p className="text-slate-600 dark:text-slate-400">
+            One piece of content → 10+ formats for all platforms
+          </p>
         </div>
 
-        {/* Content History */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Your Content</h2>
-          
-          {contents.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-              No content processed yet. Paste a YouTube URL above to get started!
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {contents.map((content) => (
-                <Link
-                  key={content.id}
-                  href={`/content/${content.id}`}
-                  className="block p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary-500 transition-colors"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium text-lg">
-                        {content.title || 'Untitled'}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {content.sourceType.toUpperCase()} • {new Date(content.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(content.status)}`}>
-                        {content.status}
-                      </span>
-                      {content._count?.outputs && (
-                        <span className="text-sm text-gray-500">
-                          {content._count.outputs} outputs
-                        </span>
-                      )}
+        {/* New Content Section */}
+        <Card className="mb-8 border-2 shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-violet-600" />
+              Process New Content
+            </CardTitle>
+            <CardDescription>
+              Upload a file or paste a YouTube URL to get started
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="youtube" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="youtube" className="flex items-center gap-2">
+                  <Youtube className="h-4 w-4" />
+                  YouTube URL
+                </TabsTrigger>
+                <TabsTrigger value="file" className="flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Upload File
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="youtube">
+                <form onSubmit={handleYoutubeSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="youtube-url">YouTube URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="youtube-url"
+                        type="url"
+                        value={youtubeUrl}
+                        onChange={(e) => setYoutubeUrl(e.target.value)}
+                        placeholder="https://youtube.com/watch?v=..."
+                        className="flex-1"
+                        disabled={processing}
+                      />
+                      <Button type="submit" disabled={processing || !youtubeUrl.trim()}>
+                        {processing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            Process
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+                </form>
+              </TabsContent>
+
+              <TabsContent value="file">
+                <FileUpload onUpload={handleFileUpload} processing={processing} />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Content History */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-violet-600" />
+              Your Content
+            </CardTitle>
+            <CardDescription>
+              {contents.length === 0 
+                ? "No content processed yet. Start by uploading or pasting a URL above!"
+                : `${contents.length} piece${contents.length !== 1 ? 's' : ''} of content processed`
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {contents.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
+                  <FileText className="h-8 w-8 text-slate-400" />
+                </div>
+                <p className="text-slate-500 dark:text-slate-400">
+                  No content processed yet
+                </p>
+                <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+                  Upload a file or paste a YouTube URL to get started
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {contents.map((content) => (
+                  <Link
+                    key={content.id}
+                    href={`/content/${content.id}`}
+                    className="block"
+                  >
+                    <Card className="hover:shadow-md transition-all hover:border-violet-300 dark:hover:border-violet-700 cursor-pointer">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold truncate mb-1">
+                              {content.title || 'Untitled'}
+                            </h3>
+                            <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                              <span className="flex items-center gap-1">
+                                {content.sourceType === 'youtube' ? (
+                                  <Youtube className="h-3 w-3" />
+                                ) : (
+                                  <Upload className="h-3 w-3" />
+                                )}
+                                {content.sourceType.toUpperCase()}
+                              </span>
+                              <Separator orientation="vertical" className="h-4" />
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {new Date(content.createdAt).toLocaleDateString()}
+                              </span>
+                              {content._count?.outputs && (
+                                <>
+                                  <Separator orientation="vertical" className="h-4" />
+                                  <span>{content._count.outputs} outputs</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          {getStatusBadge(content.status)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </main>
     </div>
   );
