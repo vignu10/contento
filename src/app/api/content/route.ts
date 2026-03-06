@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verify } from 'jsonwebtoken';
 import { prisma } from '@/lib/db';
-import { contentQueue, JOB_TYPES } from '@/lib/queue';
-import { uploadFile, generateFileKey } from '@/lib/storage';
-import { getVideoInfo, extractVideoId } from '@/services/youtube';
+import { getVideoInfo } from '@/services/youtube';
+import { writeFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import path from 'path';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
 
@@ -25,58 +26,89 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { sourceType, sourceUrl } = body;
+    const contentType = request.headers.get('content-type') || '';
+    
+    let sourceType: string;
+    let sourceUrl: string | undefined;
+    let sourceFile: string | undefined;
+    let title = 'Untitled';
 
-    // Validate input
-    if (!sourceType) {
-      return NextResponse.json({ error: 'Source type required' }, { status: 400 });
+    // Handle FormData (file upload)
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+      sourceType = formData.get('sourceType') as string;
+      const file = formData.get('file') as File | null;
+
+      if (!sourceType) {
+        return NextResponse.json({ error: 'Source type required' }, { status: 400 });
+      }
+
+      if (['audio', 'video', 'pdf'].includes(sourceType) && !file) {
+        return NextResponse.json({ error: 'File upload required' }, { status: 400 });
+      }
+
+      // Save uploaded file
+      if (file) {
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+
+        // Create uploads directory if it doesn't exist
+        const uploadDir = path.join(process.cwd(), 'uploads', userId);
+        if (!existsSync(uploadDir)) {
+          await mkdir(uploadDir, { recursive: true });
+        }
+
+        // Generate unique filename
+        const timestamp = Date.now();
+        const ext = file.name.split('.').pop();
+        const filename = `${sourceType}-${timestamp}.${ext}`;
+        const filepath = path.join(uploadDir, filename);
+
+        await writeFile(filepath, buffer);
+        sourceFile = filepath;
+        title = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
+      }
+    } 
+    // Handle JSON (YouTube URL)
+    else {
+      const body = await request.json();
+      sourceType = body.sourceType;
+      sourceUrl = body.sourceUrl;
+
+      if (!sourceType) {
+        return NextResponse.json({ error: 'Source type required' }, { status: 400 });
+      }
+
+      if (sourceType === 'youtube' && !sourceUrl) {
+        return NextResponse.json({ error: 'YouTube URL required' }, { status: 400 });
+      }
+
+      // Get video title for YouTube
+      if (sourceType === 'youtube' && sourceUrl) {
+        try {
+          const videoInfo = await getVideoInfo(sourceUrl);
+          title = videoInfo.title;
+        } catch (e) {
+          console.error('Failed to fetch video info:', e);
+        }
+      }
     }
-
-    if (sourceType === 'youtube' && !sourceUrl) {
-      return NextResponse.json({ error: 'YouTube URL required' }, { status: 400 });
-    }
-
-    // File upload support (for future)
-    // const file = formData.get('file') as File | null;
-    // if (['audio', 'video', 'pdf'].includes(sourceType) && !file) {
-    //   return NextResponse.json({ error: 'File upload required' }, { status: 400 });
-    // }
 
     // Create content record
-    let title = 'Untitled';
-    let sourceFileKey: string | undefined;
-
-    if (sourceType === 'youtube' && sourceUrl) {
-      const videoInfo = await getVideoInfo(sourceUrl);
-      title = videoInfo.title;
-    }
-
-    // File upload (for future implementation)
-    // if (file) {
-    //   const buffer = Buffer.from(await file.arrayBuffer());
-    //   sourceFileKey = generateFileKey(userId, sourceType, file.name);
-    //   await uploadFile(sourceFileKey, buffer, file.type);
-    // }
-
     const content = await prisma.content.create({
       data: {
         userId,
         sourceType,
         sourceUrl,
-        sourceFile: sourceFileKey,
+        sourceFile,
         title,
         status: 'pending',
       },
     });
 
-    // Queue processing job (for now, we'll use mock generation)
-    // In production: await contentQueue.add(JOB_TYPES.TRANSCRIBE, {...})
-    
-    // For demo: Auto-generate mock outputs
+    // For demo: Auto-generate mock outputs asynchronously
     const contentId = content.id;
     
-    // Async generation (don't wait)
     fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/content/${contentId}/generate`, {
       method: 'POST',
       headers: { 
