@@ -1,9 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  // Note: output: 'standalone' is removed as Railway's native Next.js builder
+  // handles production builds automatically without standalone mode
   experimental: {
     serverComponentsExternalPackages: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
-    instrumentationHook: true,
+    // instrumentationHook: true, // Commented out for Railway compatibility
   },
   webpack: (config) => {
     config.externals = config.externals || [];
@@ -22,16 +23,16 @@ const nextConfig = {
           // Control referrer information
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           // Disable unnecessary browser features
-          { 
-            key: 'Permissions-Policy', 
-            value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()' 
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()'
           },
           // Basic CSP - adjust as needed for your app
-          { 
-            key: 'Content-Security-Policy', 
+          {
+            key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js needs unsafe-inline/eval
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",

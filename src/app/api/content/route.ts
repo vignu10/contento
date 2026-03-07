@@ -2,18 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verify } from 'jsonwebtoken';
 import { prisma } from '@/lib/db';
 import { getVideoInfo, validateVideoId } from '@/services/youtube';
-import { writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
 import { config } from '@/lib/config';
 import { getUserId } from '@/lib/auth';
 import { createContentJsonSchema, sourceTypeEnum } from '@/lib/validation';
 import { ZodError } from 'zod';
-import { createReadStream, stat } from 'fs';
-import { promisify } from 'util';
 import fileType from 'file-type';
-
-const statAsync = promisify(stat);
+import { uploadFile, generateFileKey } from '@/lib/storage';
 
 // Allowed MIME types with their corresponding source types
 const ALLOWED_MIME_TYPES: Record<string, string> = {
@@ -36,7 +30,7 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024;
 /**
  * Validate file by reading magic bytes (not just extension)
  */
-async function validateFileType(buffer: Buffer): Promise<{ valid: boolean; sourceType?: string }> {
+async function validateFileType(buffer: Buffer): Promise<{ valid: boolean; sourceType?: string; mime?: string }> {
   try {
     const detectedType = await fileType.fromBuffer(buffer);
     if (!detectedType) {
@@ -50,6 +44,7 @@ async function validateFileType(buffer: Buffer): Promise<{ valid: boolean; sourc
       'audio/wav': 'audio',
       'audio/x-m4a': 'audio',
       'audio/m4a': 'audio',
+      'audio/mp4': 'audio',
       'video/mp4': 'video',
       'application/pdf': 'pdf',
     };
@@ -59,7 +54,7 @@ async function validateFileType(buffer: Buffer): Promise<{ valid: boolean; sourc
       return { valid: false };
     }
     
-    return { valid: true, sourceType };
+    return { valid: true, sourceType, mime: detectedType.mime };
   } catch {
     return { valid: false };
   }
@@ -110,23 +105,26 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      // Create uploads directory if it doesn't exist
-      const uploadDir = path.join(process.cwd(), 'uploads', userId);
-      if (!existsSync(uploadDir)) {
-        await mkdir(uploadDir, { recursive: true });
+      // ✅ Upload to S3 instead of local filesystem (required for Railway)
+      // Railway's filesystem is ephemeral - files will be lost on deploy
+      try {
+        const s3Key = generateFileKey(userId, rawSourceType, file.name);
+        await uploadFile(s3Key, buffer, typeValidation.mime || 'application/octet-stream');
+        sourceFile = s3Key;
+        sourceType = rawSourceType;
+        title = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
+      } catch (s3Error) {
+        console.error('S3 upload failed:', s3Error);
+        // Check if S3 is configured
+        if (!config.awsAccessKeyId || !config.awsSecretAccessKey) {
+          return NextResponse.json({ 
+            error: 'File storage not configured. Please set AWS credentials.' 
+          }, { status: 500 });
+        }
+        return NextResponse.json({ 
+          error: 'Failed to upload file. Please try again.' 
+        }, { status: 500 });
       }
-
-      // Generate secure filename using crypto
-      const crypto = await import('crypto');
-      const randomId = crypto.randomBytes(16).toString('hex');
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
-      const filename = `${rawSourceType}-${randomId}.${ext}`;
-      const filepath = path.join(uploadDir, filename);
-
-      await writeFile(filepath, buffer);
-      sourceFile = filepath;
-      sourceType = rawSourceType;
-      title = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
     } 
     // Handle JSON (YouTube URL)
     else {
