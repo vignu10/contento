@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
   experimental: {
     serverComponentsExternalPackages: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
     instrumentationHook: true,
