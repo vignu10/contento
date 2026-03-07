@@ -1,15 +1,15 @@
 [phases.setup]
 
-nixPkgs = ['...', 'openssl']
+nixPkgs = ['nodejs', 'openssl']
 
 [phases.install]
 
-cmds = ['npm ci', 'npx prisma generate']
+cmds = ['npm ci']
 
 [phases.build]
 
-cmds = ['npm run build']
+cmds = ['npx prisma generate', 'npm run build']
 
 [start]
 
-cmd = 'node server.js'
+cmd = 'npx prisma migrate deploy && node server.js'
