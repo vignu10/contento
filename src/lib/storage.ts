@@ -62,7 +62,7 @@ export async function deleteFile(key: string): Promise<void> {
 /**
  * Get public URL for a file (works for both S3 and local)
  */
-export function getPublicUrl(key: string): string {
+export function getPublicUrl(key: string): string | null {
   if (STORAGE_MODE === 's3') {
     return `https://${BUCKET}.s3.${config.awsRegion}.amazonaws.com/${key}`;
   } else {
