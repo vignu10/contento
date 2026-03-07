@@ -31,5 +31,5 @@ ENV HOSTNAME=0.0.0.0
 # Expose port
 EXPOSE 3000
 
-# Start the application
+# Start of application
 CMD ["npm", "start"]
