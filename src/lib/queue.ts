@@ -1,11 +1,34 @@
 import Queue from 'bull';
 import { RedisOptions } from 'ioredis';
+import { config } from './config';
 
-const redisConfig: RedisOptions = {
-  host: process.env.REDIS_URL?.split('://')[1]?.split(':')[0] || 'localhost',
-  port: parseInt(process.env.REDIS_URL?.split(':')[2] || '6379'),
-  maxRetriesPerRequest: null,
-};
+/**
+ * Parse Redis URL properly, handling passwords and TLS.
+ */
+function parseRedisUrl(url: string): RedisOptions {
+  try {
+    const parsed = new URL(url);
+    
+    return {
+      host: parsed.hostname || 'localhost',
+      port: parseInt(parsed.port) || 6379,
+      password: parsed.password || undefined,
+      username: parsed.username || undefined,
+      maxRetriesPerRequest: null,
+      // Enable TLS for rediss:// URLs
+      tls: parsed.protocol === 'rediss:' ? { rejectUnauthorized: false } : undefined,
+    };
+  } catch (error) {
+    console.warn('Failed to parse Redis URL, using defaults:', error);
+    return {
+      host: 'localhost',
+      port: 6379,
+      maxRetriesPerRequest: null,
+    };
+  }
+}
+
+const redisConfig = parseRedisUrl(config.redisUrl);
 
 // Main processing queue
 export const contentQueue = new Queue('content-processing', {

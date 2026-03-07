@@ -1,19 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verify } from 'jsonwebtoken';
 import { prisma } from '@/lib/db';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-prod';
-
-function getUserId(request: NextRequest): string | null {
-  const token = request.cookies.get('auth-token')?.value;
-  if (!token) return null;
-  try {
-    const decoded = verify(token, JWT_SECRET) as { userId: string };
-    return decoded.userId;
-  } catch {
-    return null;
-  }
-}
+import { config } from '@/lib/config';
+import { getUserId } from '@/lib/auth';
 
 // Mock outputs for demo (in production, this comes from AI processing)
 function generateMockOutputs(title: string) {
@@ -86,6 +75,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // ✅ Enforce ownership
     const content = await prisma.content.findFirst({
       where: { id: params.id, userId },
     });
