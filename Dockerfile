@@ -12,7 +12,8 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma client with explicit schema path
+ENV PRISMA_SCHEMA_PATH=/app/prisma/schema.prisma
 RUN npx prisma generate
 
 # Build Next.js application
