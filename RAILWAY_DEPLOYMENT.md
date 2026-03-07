@@ -85,15 +85,30 @@ npx prisma migrate deploy
 
 ## File Storage
 
-⚠️ **Important:** Railway's filesystem is ephemeral. Files uploaded to local storage are lost on redeploy.
+⚠️ **Important:** Railway's filesystem is **ephemeral**. Files uploaded to local storage are lost on every redeploy.
 
-**Solution:** The app is configured to use AWS S3 for persistent file storage. You must configure AWS credentials for uploads to work.
+**Solution:** The app supports two storage modes:
 
-Alternative S3-compatible services:
+### Option 1: AWS S3 (Recommended for Production)
+
+The app uses AWS S3 for persistent file storage when credentials are configured.
+
+**Alternative S3-compatible services:**
 - AWS S3
 - DigitalOcean Spaces
 - MinIO (self-hosted)
 - Cloudflare R2
+
+### Option 2: Local Filesystem (Development Only)
+
+If AWS credentials are NOT configured, the app falls back to local filesystem storage.
+
+⚠️ **Warning:** Local files are lost on every redeploy. This is acceptable for:
+- Development and testing
+- Demonstrations
+- Temporary workflows
+
+For production, configure AWS S3 credentials.
 
 ## Troubleshooting
 

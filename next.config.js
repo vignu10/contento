@@ -1,10 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Note: output: 'standalone' is removed as Railway's native Next.js builder
-  // handles production builds automatically without standalone mode
+  output: 'standalone',
   experimental: {
     serverComponentsExternalPackages: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
-    // instrumentationHook: true, // Commented out for Railway compatibility
+    instrumentationHook: true,
   },
   webpack: (config) => {
     config.externals = config.externals || [];
