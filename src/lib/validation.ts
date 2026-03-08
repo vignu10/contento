@@ -53,6 +53,27 @@ export type AuthActionInput = z.infer<typeof authActionSchema>;
 // Content schemas
 export const sourceTypeEnum = z.enum(['youtube', 'audio', 'video', 'blog', 'pdf']);
 
+// Allowed MIME types for file uploads
+const ALLOWED_MIME_TYPES = [
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/x-m4a',
+  'audio/m4a',
+  'audio/mp4',
+  'video/mp4',
+  'application/pdf',
+] as const;
+
+// File type validation - proper type checking for File objects
+const fileSchema = z.custom<File>((val) => {
+  if (!(val instanceof File)) return false;
+  return ALLOWED_MIME_TYPES.includes(val.type as (typeof ALLOWED_MIME_TYPES)[number]);
+}, {
+  message: "File must be audio, video, or PDF"
+});
+
 export const createContentJsonSchema = z.object({
   sourceType: sourceTypeEnum,
   sourceUrl: z.string().url('Invalid URL format').optional(),
@@ -60,7 +81,7 @@ export const createContentJsonSchema = z.object({
 
 export const createContentFormSchema = z.object({
   sourceType: sourceTypeEnum,
-  file: z.any().optional(), // File validation happens separately
+  file: fileSchema.optional(),
 });
 
 export type CreateContentJsonInput = z.infer<typeof createContentJsonSchema>;
