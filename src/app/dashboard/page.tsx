@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 
@@ -130,6 +131,32 @@ export default function Dashboard() {
       headers: { 'Content-Type': 'application/json' }
     });
     router.push('/');
+  }
+
+  async function handleDeleteContent(e: React.MouseEvent, contentId: string, contentTitle: string) {
+    e.preventDefault(); // Prevent navigation to detail page
+    e.stopPropagation();
+
+    const confirmed = confirm(
+      `Are you sure you want to delete "${contentTitle || 'Untitled'}"?\n\nThis will permanently delete this content and all its outputs. This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/content/${contentId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        fetchContents();
+      } else {
+        alert('Failed to delete content. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to delete:', error);
+      alert('Failed to delete content. Please try again.');
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -281,7 +308,7 @@ export default function Dashboard() {
               Your Content
             </CardTitle>
             <CardDescription>
-              {contents.length === 0 
+              {contents.length === 0
                 ? "No content processed yet. Start by uploading or pasting a URL above!"
                 : `${contents.length} piece${contents.length !== 1 ? 's' : ''} of content processed`
               }
@@ -303,45 +330,52 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {contents.map((content) => (
-                  <Link
+                  <Card
                     key={content.id}
-                    href={`/content/${content.id}`}
-                    className="block"
+                    className="hover:shadow-md transition-all hover:border-violet-300 dark:hover:border-violet-700 cursor-pointer"
                   >
-                    <Card className="hover:shadow-md transition-all hover:border-violet-300 dark:hover:border-violet-700 cursor-pointer">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold truncate mb-1">
-                              {content.title || 'Untitled'}
-                            </h3>
-                            <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-                              <span className="flex items-center gap-1">
-                                {content.sourceType === 'youtube' ? (
-                                  <Youtube className="h-3 w-3" />
-                                ) : (
-                                  <Upload className="h-3 w-3" />
-                                )}
-                                {content.sourceType.toUpperCase()}
-                              </span>
-                              <Separator orientation="vertical" className="h-4" />
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {new Date(content.createdAt).toLocaleDateString()}
-                              </span>
-                              {content._count?.outputs && (
-                                <>
-                                  <Separator orientation="vertical" className="h-4" />
-                                  <span>{content._count.outputs} outputs</span>
-                                </>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <Link href={`/content/${content.id}`} className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate mb-1">
+                            {content.title || 'Untitled'}
+                          </h3>
+                          <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                            <span className="flex items-center gap-1">
+                              {content.sourceType === 'youtube' ? (
+                                <Youtube className="h-3 w-3" />
+                              ) : (
+                                <Upload className="h-3 w-3" />
                               )}
-                            </div>
+                              {content.sourceType.toUpperCase()}
+                            </span>
+                            <Separator orientation="vertical" className="h-4" />
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {new Date(content.createdAt).toLocaleDateString()}
+                            </span>
+                            {content._count?.outputs && (
+                              <>
+                                <Separator orientation="vertical" className="h-4" />
+                                <span>{content._count.outputs} outputs</span>
+                              </>
+                            )}
                           </div>
+                        </Link>
+                        <div className="flex items-center gap-2">
                           {getStatusBadge(content.status)}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => handleDeleteContent(e, content.id, content.title || 'Untitled')}
+                            className="h-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             )}

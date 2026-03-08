@@ -13,6 +13,9 @@ import {
   Loader2,
   Copy,
   Check,
+  Edit,
+  Save,
+  X,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -68,6 +71,8 @@ export default function ContentDetail() {
   const [activeTab, setActiveTab] = useState('twitter_thread');
   const [copied, setCopied] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [editingOutput, setEditingOutput] = useState<{ id: string; data: string } | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const fetchContent = useCallback(async () => {
     const res = await fetch(`/api/content?contentId=${contentId}`);
@@ -148,6 +153,32 @@ export default function ContentDetail() {
     );
   }
 
+  async function handleSaveEdit() {
+    if (!editingOutput) return;
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/content/${contentId}/outputs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          outputId: editingOutput.id,
+          editedData: editingOutput.data,
+        }),
+      });
+
+      if (res.ok) {
+        setEditingOutput(null);
+        await fetchContent(); // Refresh to show edited content
+      }
+    } catch (error) {
+      console.error('Failed to save edit:', error);
+      alert('Failed to save edit. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function renderOutput(output: Output) {
     const data = parseOutputData(output);
 
@@ -170,8 +201,41 @@ export default function ContentDetail() {
         return (
           <Card>
             <CardContent className="p-4">
-              <p className="whitespace-pre-wrap mb-4">{data.text || data}</p>
-              <CopyButton text={data.text || data} id="linkedin" />
+              {editingOutput?.id === output.id ? (
+                <div className="space-y-4">
+                  <textarea
+                    className="w-full min-h-[200px] p-3 border rounded-md"
+                    value={editingOutput.data}
+                    onChange={(e) => setEditingOutput({ ...editingOutput, data: e.target.value })}
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSaveEdit} disabled={saving}>
+                      {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                      Save
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditingOutput(null)}>
+                      <X className="h-3 w-3 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="whitespace-pre-wrap mb-4">{data.text || data}</p>
+                  <div className="flex gap-2">
+                    <CopyButton text={data.text || data} id="linkedin" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingOutput({ id: output.id, data: output.editedData || output.data })}
+                      className="h-8"
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      Edit
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         );
@@ -180,11 +244,44 @@ export default function ContentDetail() {
         return (
           <Card>
             <CardContent className="p-6">
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                <p className="whitespace-pre-wrap">{data.text || data}</p>
-              </div>
-              <Separator className="my-4" />
-              <CopyButton text={data.text || data} id="newsletter" />
+              {editingOutput?.id === output.id ? (
+                <div className="space-y-4">
+                  <textarea
+                    className="w-full min-h-[300px] p-3 border rounded-md"
+                    value={editingOutput.data}
+                    onChange={(e) => setEditingOutput({ ...editingOutput, data: e.target.value })}
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSaveEdit} disabled={saving}>
+                      {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                      Save
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditingOutput(null)}>
+                      <X className="h-3 w-3 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <p className="whitespace-pre-wrap">{data.text || data}</p>
+                  </div>
+                  <Separator className="my-4" />
+                  <div className="flex gap-2">
+                    <CopyButton text={data.text || data} id="newsletter" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingOutput({ id: output.id, data: output.editedData || output.data })}
+                      className="h-8"
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      Edit
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         );
@@ -257,18 +354,54 @@ export default function ContentDetail() {
         return (
           <Card>
             <CardContent className="p-4">
-              <p className="whitespace-pre-wrap mb-4">{data.caption}</p>
-              <div className="flex flex-wrap gap-2 mb-4">
-                {Array.isArray(data.hashtags) && data.hashtags.map((tag: string, i: number) => (
-                  <Badge key={i} variant="secondary" className="text-xs">
-                    #{tag}
-                  </Badge>
-                ))}
-              </div>
-              <CopyButton 
-                text={`${data.caption}\n\n${data.hashtags.map((t: string) => `#${t}`).join(' ')}`} 
-                id="instagram" 
-              />
+              {editingOutput?.id === output.id ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Caption</label>
+                    <textarea
+                      className="w-full min-h-[150px] p-3 border rounded-md"
+                      value={editingOutput.data}
+                      onChange={(e) => setEditingOutput({ ...editingOutput, data: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSaveEdit} disabled={saving}>
+                      {saving ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />}
+                      Save
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setEditingOutput(null)}>
+                      <X className="h-3 w-3 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="whitespace-pre-wrap mb-4">{data.caption}</p>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {Array.isArray(data.hashtags) && data.hashtags.map((tag: string, i: number) => (
+                      <Badge key={i} variant="secondary" className="text-xs">
+                        #{tag}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <CopyButton 
+                      text={`${data.caption}\n\n${data.hashtags.map((t: string) => `#${t}`).join(' ')}`} 
+                      id="instagram" 
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingOutput({ id: output.id, data: output.editedData || output.data })}
+                      className="h-8"
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      Edit
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         );
