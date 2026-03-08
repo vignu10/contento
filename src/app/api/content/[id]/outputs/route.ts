@@ -6,8 +6,10 @@ import { ZodError } from 'zod';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
     const userId = getUserId(request);
     if (!userId) {
@@ -16,8 +18,8 @@ export async function GET(
 
     // ✅ Verify ownership of the parent content first
     const content = await prisma.content.findFirst({
-      where: { 
-        id: params.id,
+      where: {
+        id,
         userId,
       },
       select: { id: true },
@@ -29,7 +31,7 @@ export async function GET(
 
     // Now safe to fetch outputs (they belong to verified content)
     const outputs = await prisma.output.findMany({
-      where: { contentId: params.id },
+      where: { contentId: id },
     });
 
     return NextResponse.json({ outputs });
@@ -44,8 +46,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
     const userId = getUserId(request);
     if (!userId) {
@@ -67,7 +71,7 @@ export async function PUT(
     }
 
     // Also verify the contentId matches the URL param
-    if (output.contentId !== params.id) {
+    if (output.contentId !== id) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 

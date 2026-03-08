@@ -72,15 +72,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'File upload required' }, { status: 400 });
       }
 
-      // Check file size
-      if (file.size > MAX_FILE_SIZE) {
+      // Check file size (file must be a File object)
+      if (typeof file !== 'object' || file === null || !('size' in file)) {
+        return NextResponse.json({ error: 'Invalid file upload' }, { status: 400 });
+      }
+
+      const fileObj = file as { size: number; name: string; arrayBuffer: () => Promise<ArrayBuffer> };
+      if (fileObj.size > MAX_FILE_SIZE) {
         return NextResponse.json({ error: 'File too large. Maximum size is 100MB.' }, { status: 400 });
       }
 
       // Read file and validate type by magic bytes
-      const bytes = await file.arrayBuffer();
+      const bytes = await fileObj.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      
+
       const typeValidation = await validateFileType(buffer);
       if (!typeValidation.valid || typeValidation.sourceType !== rawSourceType) {
         return NextResponse.json({ 
@@ -90,11 +95,11 @@ export async function POST(request: NextRequest) {
 
       // Upload to S3 instead of local filesystem (required for Railway)
       try {
-        const s3Key = generateFileKey(userId, rawSourceType, file.name);
+        const s3Key = generateFileKey(userId, rawSourceType, fileObj.name);
         await uploadFile(s3Key, buffer, typeValidation.mime || 'application/octet-stream');
         sourceFile = s3Key;
         sourceType = rawSourceType;
-        title = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
+        title = fileObj.name.replace(/\.[^/.]+$/, ''); // Remove extension
       } catch (s3Error) {
         console.error('S3 upload failed:', s3Error);
         

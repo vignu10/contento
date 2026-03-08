@@ -5,15 +5,17 @@ const openai = new OpenAI({
   apiKey: config.openaiApiKey,
 });
 
+export interface TikTokClip {
+  hook: string;
+  timestamp: { start: number; end: number };
+  script: string;
+}
+
 export interface ContentOutputs {
   twitterThread: string[];
   linkedinPost: string;
   newsletter: string;
-  tiktokClips: Array<{
-    hook: string;
-    timestamp: { start: number; end: number };
-    script: string;
-  }>;
+  tiktokClips: TikTokClip[];
   quoteGraphics: string[];
   seoSummary: string;
   instagramCaption: string;

@@ -4,8 +4,10 @@ import { getUserId } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
     const userId = getUserId(request);
     if (!userId) {
@@ -14,8 +16,8 @@ export async function GET(
 
     // ✅ Enforce ownership - only allow access to own content
     const content = await prisma.content.findFirst({
-      where: { 
-        id: params.id,
+      where: {
+        id,
         userId,  // Critical: verify the content belongs to this user
       },
       include: { outputs: true },
@@ -38,8 +40,10 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
     const userId = getUserId(request);
     if (!userId) {
@@ -48,8 +52,8 @@ export async function DELETE(
 
     // ✅ Enforce ownership - verify before delete
     const content = await prisma.content.findFirst({
-      where: { 
-        id: params.id,
+      where: {
+        id,
         userId,
       },
       select: { id: true },
@@ -60,7 +64,7 @@ export async function DELETE(
     }
 
     await prisma.content.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });

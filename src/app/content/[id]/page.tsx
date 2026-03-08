@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { TikTokClip } from '@/services/ai';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -53,6 +54,10 @@ interface Content {
   createdAt: string;
 }
 
+interface ContentApiResponse {
+  content: Content | null;
+}
+
 export default function ContentDetail() {
   const router = useRouter();
   const params = useParams();
@@ -76,7 +81,7 @@ export default function ContentDetail() {
 
   async function fetchContent() {
     const res = await fetch(`/api/content?contentId=${contentId}`);
-    const data = await res.json();
+    const data = await res.json() as ContentApiResponse;
     setContent(data.content);
     setLoading(false);
   }
@@ -187,7 +192,7 @@ export default function ContentDetail() {
       case 'tiktok_clip':
         return (
           <div className="space-y-4">
-            {Array.isArray(data) && data.map((clip: any, i: number) => (
+            {Array.isArray(data) && data.map((clip: TikTokClip, i: number) => (
               <Card key={i}>
                 <CardContent className="p-4">
                   <h4 className="font-semibold text-lg mb-2">{clip.hook}</h4>
