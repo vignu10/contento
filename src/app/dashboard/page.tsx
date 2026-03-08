@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Settings
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 
@@ -193,6 +194,11 @@ export default function Dashboard() {
             <span className="text-sm text-slate-600 dark:text-slate-300 hidden sm:block">
               {user?.name || user?.email}
             </span>
+            <Link href="/settings">
+              <Button variant="ghost" size="sm">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </Link>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
