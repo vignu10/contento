@@ -8,21 +8,6 @@ import { ZodError } from 'zod';
 import fileType from 'file-type';
 import { uploadFile, generateFileKey } from '@/lib/storage';
 
-// Allowed MIME types with their corresponding source types
-const ALLOWED_MIME_TYPES: Record<string, string> = {
-  'audio/mpeg': 'audio',
-  'audio/mp3': 'audio',
-  'audio/wav': 'audio',
-  'audio/x-wav': 'audio',
-  'audio/x-m4a': 'audio',
-  'audio/m4a': 'audio',
-  'audio/mp4': 'audio',
-  'video/mp4': 'video',
-  'video/quicktime': 'video',
-  'video/x-msvideo': 'video',
-  'application/pdf': 'pdf',
-};
-
 // Maximum file size: 100MB
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -36,11 +21,11 @@ async function validateFileType(buffer: Buffer): Promise<{ valid: boolean; sourc
       return { valid: false };
     }
     
-    // Map file-type MIME to our source types
     const mimeToSourceType: Record<string, string> = {
       'audio/mpeg': 'audio',
       'audio/mp3': 'audio',
       'audio/wav': 'audio',
+      'audio/x-wav': 'audio',
       'audio/x-m4a': 'audio',
       'audio/m4a': 'audio',
       'audio/mp4': 'audio',
@@ -77,19 +62,18 @@ export async function POST(request: NextRequest) {
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const rawSourceType = formData.get('sourceType') as string;
-      const fileEntry = formData.get('file');
+      const file = formData.get('file');
       
       // Validate source type
       if (!rawSourceType || !['audio', 'video', 'pdf'].includes(rawSourceType)) {
         return NextResponse.json({ error: 'Valid source type required (audio, video, pdf)' }, { status: 400 });
       }
 
-      if (!fileEntry) {
+      if (!file) {
         return NextResponse.json({ error: 'File upload required' }, { status: 400 });
       }
 
       // Check file size
-      const file = fileEntry as File;
       if (file.size > MAX_FILE_SIZE) {
         return NextResponse.json({ error: 'File too large. Maximum size is 100MB.' }, { status: 400 });
       }
@@ -105,7 +89,7 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      // ✅ Upload to S3 instead of local filesystem (required for Railway)
+      // Upload to S3 instead of local filesystem (required for Railway)
       try {
         const s3Key = generateFileKey(userId, rawSourceType, file.name);
         await uploadFile(s3Key, buffer, typeValidation.mime || 'application/octet-stream');
@@ -219,7 +203,7 @@ export async function GET(request: NextRequest) {
     if (contentId) {
       // Get single content with outputs - MUST verify ownership
       const content = await prisma.content.findFirst({
-        where: { id: contentId, userId }, // ✅ Enforce ownership
+        where: { id: contentId, userId }, // Enforce ownership
         include: { 
           outputs: true,
           _count: { select: { outputs: true } }
