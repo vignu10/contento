@@ -60,7 +60,7 @@ Generate:
 Return as JSON with keys: twitterThread (array), linkedinPost, newsletter, tiktokClips (array with hook/timestamp/script), quoteGraphics (array), seoSummary, instagramCaption, hashtags (array)`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4-turbo-preview',
+    model: 'gpt-4o-mini', // More cost-effective than gpt-4o, faster
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: prompt },
@@ -101,7 +101,7 @@ ${transcript}
 Return as JSON array with keys: timestamp, text, type`;
 
   const response = await openai.chat.completions.create({
-    model: 'gpt-4-turbo-preview',
+    model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: 'You are an expert at identifying viral moments in content.' },
       { role: 'user', content: prompt },
