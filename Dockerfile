@@ -1,5 +1,5 @@
 # Dockerfile for Railway deployment
-# Simple, reliable Next.js build
+# Simplified, reliable Next.js build
 
 FROM node:20-alpine
 
@@ -12,8 +12,7 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Generate Prisma client with explicit schema path
-ENV PRISMA_SCHEMA_PATH=/app/prisma/schema.prisma
+# Generate Prisma client
 RUN npx prisma generate
 
 # Build Next.js application
@@ -31,5 +30,5 @@ ENV HOSTNAME=0.0.0.0
 # Expose port
 EXPOSE 3000
 
-# Start of application
+# Start application
 CMD ["npm", "start"]
