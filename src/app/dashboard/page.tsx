@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 
@@ -46,6 +47,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchUser = useCallback(async () => {
     const res = await fetch('/api/auth');
@@ -130,6 +133,28 @@ export default function Dashboard() {
       headers: { 'Content-Type': 'application/json' }
     });
     router.push('/');
+  }
+
+  async function handleDelete(contentId: string) {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/content/${contentId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setContents(contents.filter(c => c.id !== contentId));
+        setDeleteDialog(null);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete content');
+      }
+    } catch (error) {
+      console.error('Failed to delete:', error);
+      alert('Failed to delete content');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -303,51 +328,98 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {contents.map((content) => (
-                  <Link
-                    key={content.id}
-                    href={`/content/${content.id}`}
-                    className="block"
-                  >
-                    <Card className="hover:shadow-md transition-all hover:border-violet-300 dark:hover:border-violet-700 cursor-pointer">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold truncate mb-1">
-                              {content.title || 'Untitled'}
-                            </h3>
-                            <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-                              <span className="flex items-center gap-1">
-                                {content.sourceType === 'youtube' ? (
-                                  <Youtube className="h-3 w-3" />
-                                ) : (
-                                  <Upload className="h-3 w-3" />
+                  <div key={content.id} className="relative">
+                    <Link href={`/content/${content.id}`} className="block">
+                      <Card className="hover:shadow-md transition-all hover:border-violet-300 dark:hover:border-violet-700 cursor-pointer">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold truncate mb-1">
+                                {content.title || 'Untitled'}
+                              </h3>
+                              <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+                                <span className="flex items-center gap-1">
+                                  {content.sourceType === 'youtube' ? (
+                                    <Youtube className="h-3 w-3" />
+                                  ) : (
+                                    <Upload className="h-3 w-3" />
+                                  )}
+                                  {content.sourceType.toUpperCase()}
+                                </span>
+                                <Separator orientation="vertical" className="h-4" />
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {new Date(content.createdAt).toLocaleDateString()}
+                                </span>
+                                {content._count?.outputs && (
+                                  <>
+                                    <Separator orientation="vertical" className="h-4" />
+                                    <span>{content._count.outputs} outputs</span>
+                                  </>
                                 )}
-                                {content.sourceType.toUpperCase()}
-                              </span>
-                              <Separator orientation="vertical" className="h-4" />
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {new Date(content.createdAt).toLocaleDateString()}
-                              </span>
-                              {content._count?.outputs && (
-                                <>
-                                  <Separator orientation="vertical" className="h-4" />
-                                  <span>{content._count.outputs} outputs</span>
-                                </>
-                              )}
+                              </div>
                             </div>
+                            {getStatusBadge(content.status)}
                           </div>
-                          {getStatusBadge(content.status)}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-3 right-3 h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setDeleteDialog(content.id);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
       </main>
+
+      {/* Delete Confirmation */}
+      {deleteDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold mb-2">Delete Content?</h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-6">
+              This action cannot be undone. This will permanently delete this content and all associated outputs.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialog(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => deleteDialog && handleDelete(deleteDialog)}
+                disabled={deleting}
+                variant="destructive"
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
