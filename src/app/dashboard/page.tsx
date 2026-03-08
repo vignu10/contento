@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -10,12 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Youtube, 
-  Upload, 
-  FileText, 
-  Loader2, 
-  LogOut, 
+import {
+  Youtube,
+  Upload,
+  FileText,
+  Loader2,
+  LogOut,
   Sparkles,
   ArrowRight,
   Clock,
@@ -47,12 +47,7 @@ export default function Dashboard() {
   const [processing, setProcessing] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
 
-  useEffect(() => {
-    fetchUser();
-    fetchContents();
-  }, []);
-
-  async function fetchUser() {
+  const fetchUser = useCallback(async () => {
     const res = await fetch('/api/auth');
     const data = await res.json();
     if (!data.user) {
@@ -60,14 +55,19 @@ export default function Dashboard() {
       return;
     }
     setUser(data.user);
-  }
+  }, [router]);
 
-  async function fetchContents() {
+  const fetchContents = useCallback(async () => {
     const res = await fetch('/api/content');
     const data = await res.json();
     setContents(data.contents || []);
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchUser();
+    fetchContents();
+  }, [fetchUser, fetchContents]);
 
   async function handleYoutubeSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { TikTokClip } from '@/services/ai';
@@ -8,11 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { 
-  ArrowLeft, 
-  Loader2, 
-  Copy, 
-  Check, 
+import {
+  ArrowLeft,
+  Loader2,
+  Copy,
+  Check,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -69,6 +69,13 @@ export default function ContentDetail() {
   const [copied, setCopied] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
 
+  const fetchContent = useCallback(async () => {
+    const res = await fetch(`/api/content?contentId=${contentId}`);
+    const data = await res.json() as ContentApiResponse;
+    setContent(data.content);
+    setLoading(false);
+  }, [contentId]);
+
   useEffect(() => {
     fetchContent();
     const interval = setInterval(() => {
@@ -77,14 +84,7 @@ export default function ContentDetail() {
       }
     }, 5000);
     return () => clearInterval(interval);
-  }, [contentId, content?.status]);
-
-  async function fetchContent() {
-    const res = await fetch(`/api/content?contentId=${contentId}`);
-    const data = await res.json() as ContentApiResponse;
-    setContent(data.content);
-    setLoading(false);
-  }
+  }, [contentId, content?.status, fetchContent]);
 
   function copyToClipboard(text: string, id: string) {
     navigator.clipboard.writeText(text);
