@@ -24,7 +24,10 @@ import {
   FileText,
   Instagram,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Edit2,
+  X,
+  Save
 } from 'lucide-react';
 
 interface Output {
@@ -68,6 +71,9 @@ export default function ContentDetail() {
   const [activeTab, setActiveTab] = useState('twitter_thread');
   const [copied, setCopied] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [editingOutput, setEditingOutput] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const fetchContent = useCallback(async () => {
     const res = await fetch(`/api/content?contentId=${contentId}`);
@@ -90,6 +96,131 @@ export default function ContentDetail() {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function handleEdit(outputId: string, currentText: string) {
+    setEditingOutput(outputId);
+    setEditText(currentText);
+  }
+
+  async function handleSaveEdit(outputId: string) {
+    setSaving(true);
+    try {
+      // The outputId in our editing format includes the format info
+      // e.g., "actual-output-id-tweet-0" or "actual-output-id-caption"
+      // We need to extract the actual output ID
+      const actualOutputId = outputId.split('-').slice(0, -2).join('-') || outputId.replace(/-(tweet|clip|quote|caption|hook|script|hook|script)-?\d*$/, '');
+
+      // Find the output being edited
+      const output = content?.outputs.find(o => o.id.startsWith(actualOutputId) || outputId.startsWith(o.id));
+
+      if (!output) {
+        console.error('Output not found');
+        return;
+      }
+
+      // Parse existing data
+      const existingData = parseOutputData(output);
+      let editedData: string;
+
+      // Construct the edited data based on format
+      switch (output.format) {
+        case 'twitter_thread':
+          // outputId format: "outputId-tweet-index"
+          const tweetIndex = parseInt(outputId.split('-').pop() || '0');
+          const tweets = [...(Array.isArray(existingData) ? existingData : [])];
+          tweets[tweetIndex] = editText;
+          editedData = JSON.stringify(tweets);
+          break;
+
+        case 'tiktok_clip':
+          // outputId format: "outputId-clip-index-hook" or "outputId-clip-index-script"
+          const parts = outputId.split('-');
+          const clipIdx = parseInt(parts[parts.length - 2]);
+          const field = parts[parts.length - 1]; // 'hook' or 'script'
+          const clips = [...(Array.isArray(existingData) ? existingData : [])];
+          if (clips[clipIdx]) {
+            clips[clipIdx] = { ...clips[clipIdx], [field]: editText };
+          }
+          editedData = JSON.stringify(clips);
+          break;
+
+        case 'quote_graphic':
+          // outputId format: "outputId-quote-index"
+          const quoteIdx = parseInt(outputId.split('-').pop() || '0');
+          const quotes = [...(Array.isArray(existingData) ? existingData : [])];
+          quotes[quoteIdx] = editText;
+          editedData = JSON.stringify(quotes);
+          break;
+
+        case 'instagram_caption':
+          // For caption editing
+          const instagramData = existingData as { caption: string; hashtags: string[] };
+          editedData = JSON.stringify({
+            ...instagramData,
+            caption: editText,
+          });
+          break;
+
+        default:
+          // For simple text outputs (LinkedIn, newsletter, SEO summary)
+          editedData = JSON.stringify({ text: editText });
+      }
+
+      const res = await fetch(`/api/content/${contentId}/outputs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          outputId: actualOutputId,
+          editedData,
+        }),
+      });
+
+      if (res.ok) {
+        setEditingOutput(null);
+        fetchContent();
+      }
+    } catch (error) {
+      console.error('Failed to save edit:', error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancelEdit() {
+    setEditingOutput(null);
+    setEditText('');
+  }
+
+  async function handleRevert(outputId: string) {
+    // Extract actual output ID
+    const actualOutputId = outputId.split('-').slice(0, -2).join('-') || outputId.replace(/-(tweet|clip|quote|caption|hook|script|hook|script)-?\d*$/, '');
+
+    // Find the output
+    const output = content?.outputs.find(o => o.id.startsWith(actualOutputId) || outputId.startsWith(o.id));
+
+    if (!output) {
+      return;
+    }
+
+    // Clear editedData by setting it to null
+    try {
+      const res = await fetch(`/api/content/${contentId}/outputs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          outputId: actualOutputId,
+          editedData: null,
+        }),
+      });
+
+      if (res.ok) {
+        setEditingOutput(null);
+        fetchContent();
+      }
+    } catch (error) {
+      console.error('Failed to revert:', error);
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -125,6 +256,67 @@ export default function ContentDetail() {
     }
   }
 
+  function EditableText({ text, outputId, isMultiline = false }: { text: string; outputId: string; isMultiline?: boolean }) {
+    const isEditing = editingOutput === outputId;
+
+    if (isEditing) {
+      return (
+        <div className="space-y-2">
+          {isMultiline ? (
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              className="w-full min-h-[200px] p-3 border rounded-lg bg-background"
+              autoFocus
+            />
+          ) : (
+            <input
+              type="text"
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              className="w-full p-2 border rounded-lg bg-background"
+              autoFocus
+            />
+          )}
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={() => handleSaveEdit(outputId)}
+              disabled={saving}
+              className="h-8"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-3 w-3 mr-1" />
+                  Save
+                </>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCancelEdit}
+              disabled={saving}
+              className="h-8"
+            >
+              <X className="h-3 w-3 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="whitespace-pre-wrap">{text}</div>
+    );
+  }
+
   function CopyButton({ text, id }: { text: string; id: string }) {
     return (
       <Button
@@ -158,8 +350,39 @@ export default function ContentDetail() {
             {Array.isArray(data) && data.map((tweet: string, i: number) => (
               <Card key={i}>
                 <CardContent className="p-4">
-                  <p className="whitespace-pre-wrap mb-3">{tweet}</p>
-                  <CopyButton text={tweet} id={`tweet-${i}`} />
+                  <div className="mb-3">
+                    <span className="text-xs text-slate-500 mb-1 block">Tweet {i + 1}</span>
+                    <EditableText
+                      text={tweet}
+                      outputId={`${output.id}-tweet-${i}`}
+                      isMultiline={true}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    {editingOutput !== `${output.id}-tweet-${i}` && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(`${output.id}-tweet-${i}`, tweet)}
+                        className="h-8"
+                      >
+                        <Edit2 className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                    )}
+                    <CopyButton text={tweet} id={`tweet-${i}`} />
+                    {output.editedData && editingOutput !== `${output.id}-tweet-${i}` && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRevert(`${output.id}-tweet-${i}`)}
+                        className="h-8"
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Revert
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -170,8 +393,37 @@ export default function ContentDetail() {
         return (
           <Card>
             <CardContent className="p-4">
-              <p className="whitespace-pre-wrap mb-4">{data.text || data}</p>
-              <CopyButton text={data.text || data} id="linkedin" />
+              <EditableText
+                text={data.text || data}
+                outputId={output.id}
+                isMultiline={true}
+              />
+              <Separator className="my-3" />
+              <div className="flex gap-2">
+                {editingOutput !== output.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEdit(output.id, data.text || data)}
+                    className="h-8"
+                  >
+                    <Edit2 className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                )}
+                <CopyButton text={data.text || data} id="linkedin" />
+                {output.editedData && editingOutput !== output.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRevert(output.id)}
+                    className="h-8"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Revert
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         );
@@ -181,10 +433,38 @@ export default function ContentDetail() {
           <Card>
             <CardContent className="p-6">
               <div className="prose prose-sm max-w-none dark:prose-invert">
-                <p className="whitespace-pre-wrap">{data.text || data}</p>
+                <EditableText
+                  text={data.text || data}
+                  outputId={output.id}
+                  isMultiline={true}
+                />
               </div>
               <Separator className="my-4" />
-              <CopyButton text={data.text || data} id="newsletter" />
+              <div className="flex gap-2">
+                {editingOutput !== output.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEdit(output.id, data.text || data)}
+                    className="h-8"
+                  >
+                    <Edit2 className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                )}
+                <CopyButton text={data.text || data} id="newsletter" />
+                {output.editedData && editingOutput !== output.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRevert(output.id)}
+                    className="h-8"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Revert
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         );
@@ -195,13 +475,51 @@ export default function ContentDetail() {
             {Array.isArray(data) && data.map((clip: TikTokClip, i: number) => (
               <Card key={i}>
                 <CardContent className="p-4">
-                  <h4 className="font-semibold text-lg mb-2">{clip.hook}</h4>
+                  <div className="mb-2">
+                    <span className="text-xs text-slate-500 mb-1 block">Hook</span>
+                    <EditableText
+                      text={clip.hook}
+                      outputId={`${output.id}-clip-${i}-hook`}
+                      isMultiline={false}
+                    />
+                  </div>
                   <p className="text-sm text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-2">
                     <Video className="h-3 w-3" />
                     {clip.timestamp?.start}s - {clip.timestamp?.end}s
                   </p>
-                  <p className="whitespace-pre-wrap mb-3">{clip.script}</p>
-                  <CopyButton text={clip.script} id={`clip-${i}`} />
+                  <div className="mb-3">
+                    <span className="text-xs text-slate-500 mb-1 block">Script</span>
+                    <EditableText
+                      text={clip.script}
+                      outputId={`${output.id}-clip-${i}-script`}
+                      isMultiline={true}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    {editingOutput !== `${output.id}-clip-${i}-hook` && editingOutput !== `${output.id}-clip-${i}-script` && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(`${output.id}-clip-${i}-hook`, clip.hook)}
+                        className="h-8"
+                      >
+                        <Edit2 className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                    )}
+                    <CopyButton text={clip.script} id={`clip-${i}`} />
+                    {output.editedData && editingOutput !== `${output.id}-clip-${i}-hook` && editingOutput !== `${output.id}-clip-${i}-script` && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRevert(`${output.id}-clip-${i}-hook`)}
+                        className="h-8"
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Revert
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -215,25 +533,90 @@ export default function ContentDetail() {
               <Card key={i} className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-0">
                 <CardContent className="p-6">
                   <Quote className="h-6 w-6 mb-3 opacity-50" />
-                  <p className="text-lg font-medium mb-4">&ldquo;{quote}&rdquo;</p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => copyToClipboard(quote, `quote-${i}`)}
-                    className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-                  >
-                    {copied === `quote-${i}` ? (
-                      <>
-                        <Check className="h-3 w-3 mr-1" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3 mr-1" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
+                  {editingOutput === `${output.id}-quote-${i}` ? (
+                    <div className="space-y-2 mb-4">
+                      <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="w-full min-h-[100px] p-2 rounded-lg bg-white/20 border-white/30 text-white placeholder:text-white/50"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveEdit(`${output.id}-quote-${i}`)}
+                          disabled={saving}
+                          className="h-8 bg-white/20 hover:bg-white/30 text-white border-white/30"
+                        >
+                          {saving ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-3 w-3 mr-1" />
+                              Save
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelEdit}
+                          disabled={saving}
+                          className="h-8 bg-white/20 hover:bg-white/30 text-white border-white/30"
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-lg font-medium mb-4">&ldquo;{quote}&rdquo;</p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleEdit(`${output.id}-quote-${i}`, quote)}
+                          className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                        >
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => copyToClipboard(quote, `quote-${i}`)}
+                          className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                        >
+                          {copied === `quote-${i}` ? (
+                            <>
+                              <Check className="h-3 w-3 mr-1" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3 mr-1" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                        {output.editedData && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleRevert(`${output.id}-quote-${i}`)}
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Revert
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -245,10 +628,38 @@ export default function ContentDetail() {
           <Card>
             <CardContent className="p-6">
               <div className="prose prose-sm max-w-none dark:prose-invert">
-                <p className="whitespace-pre-wrap">{data.text || data}</p>
+                <EditableText
+                  text={data.text || data}
+                  outputId={output.id}
+                  isMultiline={true}
+                />
               </div>
               <Separator className="my-4" />
-              <CopyButton text={data.text || data} id="seo" />
+              <div className="flex gap-2">
+                {editingOutput !== output.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEdit(output.id, data.text || data)}
+                    className="h-8"
+                  >
+                    <Edit2 className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                )}
+                <CopyButton text={data.text || data} id="seo" />
+                {output.editedData && editingOutput !== output.id && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRevert(output.id)}
+                    className="h-8"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Revert
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         );
@@ -257,7 +668,14 @@ export default function ContentDetail() {
         return (
           <Card>
             <CardContent className="p-4">
-              <p className="whitespace-pre-wrap mb-4">{data.caption}</p>
+              <div className="mb-4">
+                <label className="text-sm font-medium mb-2 block">Caption</label>
+                <EditableText
+                  text={data.caption}
+                  outputId={`${output.id}-caption`}
+                  isMultiline={true}
+                />
+              </div>
               <div className="flex flex-wrap gap-2 mb-4">
                 {Array.isArray(data.hashtags) && data.hashtags.map((tag: string, i: number) => (
                   <Badge key={i} variant="secondary" className="text-xs">
@@ -265,10 +683,34 @@ export default function ContentDetail() {
                   </Badge>
                 ))}
               </div>
-              <CopyButton 
-                text={`${data.caption}\n\n${data.hashtags.map((t: string) => `#${t}`).join(' ')}`} 
-                id="instagram" 
-              />
+              <div className="flex gap-2">
+                {editingOutput !== `${output.id}-caption` && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleEdit(`${output.id}-caption`, data.caption)}
+                    className="h-8"
+                  >
+                    <Edit2 className="h-3 w-3 mr-1" />
+                    Edit Caption
+                  </Button>
+                )}
+                <CopyButton
+                  text={`${data.caption}\n\n${data.hashtags.map((t: string) => `#${t}`).join(' ')}`}
+                  id="instagram"
+                />
+                {output.editedData && editingOutput !== `${output.id}-caption` && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRevert(`${output.id}-caption`)}
+                    className="h-8"
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Revert
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         );
