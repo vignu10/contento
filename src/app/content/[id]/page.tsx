@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -65,22 +65,25 @@ export default function ContentDetail() {
   const [copied, setCopied] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
 
+  const fetchContent = useCallback(async () => {
+    const res = await fetch(`/api/content?contentId=${contentId}`);
+    const data = await res.json();
+    setContent(data.content);
+    setLoading(false);
+  }, [contentId]);
+
   useEffect(() => {
     fetchContent();
+  }, [fetchContent]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       if (content?.status === 'processing' || content?.status === 'pending') {
         fetchContent();
       }
     }, 5000);
     return () => clearInterval(interval);
-  }, [contentId, content?.status]);
-
-  async function fetchContent() {
-    const res = await fetch(`/api/content?contentId=${contentId}`);
-    const data = await res.json();
-    setContent(data.content);
-    setLoading(false);
-  }
+  }, [content?.status, fetchContent]);
 
   function copyToClipboard(text: string, id: string) {
     navigator.clipboard.writeText(text);
