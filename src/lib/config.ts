@@ -30,8 +30,8 @@ export const config = {
   redisUrl: getOptionalEnv('REDIS_URL', 'redis://localhost:6379'),
   
   // AWS S3
-  awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-  awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+  awsAccessKeyId: getOptionalEnv('AWS_ACCESS_KEY_ID', ''),
+  awsSecretAccessKey: getOptionalEnv('AWS_SECRET_ACCESS_KEY', ''),
   awsRegion: getOptionalEnv('AWS_REGION', 'us-east-1'),
   s3Bucket: getOptionalEnv('S3_BUCKET', 'content-repurposing'),
   
