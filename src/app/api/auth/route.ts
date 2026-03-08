@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { config } from '@/lib/config';
 import { getUserId } from '@/lib/auth';
 import { hashPassword, verifyPassword } from '@/lib/password';
-import { authActionSchema, loginSchema, signupSchema } from '@/lib/validation';
+import { authActionSchema } from '@/lib/validation';
 import { ZodError } from 'zod';
 
 export async function POST(request: NextRequest) {

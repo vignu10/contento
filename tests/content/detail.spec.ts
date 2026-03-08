@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Content Detail Page', () => {
-  let contentId: string;
-
   test.beforeEach(async ({ page }) => {
     // Login and create content
     await page.goto('/');
@@ -256,8 +254,6 @@ test.describe('Content Detail - Mobile', () => {
   });
 
   test('should scroll tabs horizontally on mobile', async ({ page }) => {
-    const tablist = page.locator('[role="tablist"]');
-    
     // Try to access Instagram tab (might need to scroll)
     const instagramTab = page.getByRole('tab', { name: /instagram/i });
     

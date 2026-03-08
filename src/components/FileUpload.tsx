@@ -11,7 +11,6 @@ interface FileUploadProps {
 export default function FileUpload({ onUpload, processing }: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const allowedTypes = {

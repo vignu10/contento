@@ -3,8 +3,7 @@ import { prisma } from '@/lib/db';
 import { getVideoInfo, validateVideoId } from '@/services/youtube';
 import { config } from '@/lib/config';
 import { getUserId } from '@/lib/auth';
-import { createContentJsonSchema, sourceTypeEnum } from '@/lib/validation';
-import { ZodError } from 'zod';
+import { createContentJsonSchema } from '@/lib/validation';
 import fileType from 'file-type';
 import { uploadFile, generateFileKey } from '@/lib/storage';
 

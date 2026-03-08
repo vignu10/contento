@@ -96,11 +96,11 @@ export async function getVideoInfo(videoUrl: string): Promise<YouTubeVideoInfo> 
   };
 }
 
-export async function getTranscriptFromYoutube(videoId: string): Promise<string> {
+export async function getTranscriptFromYoutube(): Promise<string> {
   // This would typically use youtube-transcript or similar library
   // For now, we'll use Whisper on the audio
   // In production, you might use YouTube's caption API or a third-party service
-  
+
   throw new Error('Direct YouTube transcript extraction not implemented. Use audio download + Whisper instead.');
 }
 
