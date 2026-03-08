@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Settings
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 
@@ -193,6 +194,10 @@ export default function Dashboard() {
             <span className="text-sm text-slate-600 dark:text-slate-300 hidden sm:block">
               {user?.name || user?.email}
             </span>
+            <Button variant="ghost" size="sm" onClick={() => router.push('/settings')}>
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -281,7 +286,7 @@ export default function Dashboard() {
               Your Content
             </CardTitle>
             <CardDescription>
-              {contents.length === 0 
+              {contents.length === 0
                 ? "No content processed yet. Start by uploading or pasting a URL above!"
                 : `${contents.length} piece${contents.length !== 1 ? 's' : ''} of content processed`
               }
