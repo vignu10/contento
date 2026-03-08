@@ -211,7 +211,7 @@ export default function ContentDetail() {
               <Card key={i} className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-0">
                 <CardContent className="p-6">
                   <Quote className="h-6 w-6 mb-3 opacity-50" />
-                  <p className="text-lg font-medium mb-4">"{quote}"</p>
+                  <p className="text-lg font-medium mb-4">&ldquo;{quote}&rdquo;</p>
                   <Button
                     variant="secondary"
                     size="sm"
