@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verify } from 'jsonwebtoken';
 import { prisma } from '@/lib/db';
 import { getVideoInfo, validateVideoId } from '@/services/youtube';
 import { config } from '@/lib/config';
@@ -48,7 +47,7 @@ async function validateFileType(buffer: Buffer): Promise<{ valid: boolean; sourc
       'video/mp4': 'video',
       'application/pdf': 'pdf',
     };
-    
+
     const sourceType = mimeToSourceType[detectedType.mime];
     if (!sourceType) {
       return { valid: false };
@@ -78,18 +77,19 @@ export async function POST(request: NextRequest) {
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const rawSourceType = formData.get('sourceType') as string;
-      const file = formData.get('file') as File | null;
-
+      const fileEntry = formData.get('file');
+      
       // Validate source type
       if (!rawSourceType || !['audio', 'video', 'pdf'].includes(rawSourceType)) {
         return NextResponse.json({ error: 'Valid source type required (audio, video, pdf)' }, { status: 400 });
       }
 
-      if (!file) {
+      if (!fileEntry) {
         return NextResponse.json({ error: 'File upload required' }, { status: 400 });
       }
 
       // Check file size
+      const file = fileEntry as File;
       if (file.size > MAX_FILE_SIZE) {
         return NextResponse.json({ error: 'File too large. Maximum size is 100MB.' }, { status: 400 });
       }
@@ -106,7 +106,6 @@ export async function POST(request: NextRequest) {
       }
 
       // ✅ Upload to S3 instead of local filesystem (required for Railway)
-      // Railway's filesystem is ephemeral - files will be lost on deploy
       try {
         const s3Key = generateFileKey(userId, rawSourceType, file.name);
         await uploadFile(s3Key, buffer, typeValidation.mime || 'application/octet-stream');
@@ -115,12 +114,14 @@ export async function POST(request: NextRequest) {
         title = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
       } catch (s3Error) {
         console.error('S3 upload failed:', s3Error);
+        
         // Check if S3 is configured
         if (!config.awsAccessKeyId || !config.awsSecretAccessKey) {
           return NextResponse.json({ 
-            error: 'File storage not configured. Please set AWS credentials.' 
+            error: 'File storage not configured. Set AWS credentials or use YouTube URLs for now.' 
           }, { status: 500 });
         }
+        
         return NextResponse.json({ 
           error: 'Failed to upload file. Please try again.' 
         }, { status: 500 });
