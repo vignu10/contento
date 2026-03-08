@@ -45,11 +45,38 @@ export interface QuoteGraphic {
 
 export interface ContentOutput {
   format: OutputFormat;
-  data: any;
-  editedData?: any;
+  data: OutputData;
+  editedData?: OutputData;
   isExported: boolean;
   exportedAt?: Date;
 }
+
+// Output data types for each format
+export interface TwitterThreadData {
+  tweets: string[];
+}
+
+export interface TextData {
+  text: string;
+}
+
+export interface TikTokClipData {
+  hook: string;
+  timestamp: { start: number; end: number };
+  script: string;
+}
+
+export interface InstagramCaptionData {
+  caption: string;
+  hashtags: string[];
+}
+
+export type OutputData =
+  | TwitterThreadData
+  | TextData
+  | TikTokClipData[]
+  | string[]
+  | InstagramCaptionData;
 
 export interface UserUsage {
   month: number;
