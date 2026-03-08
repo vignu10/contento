@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verify } from 'jsonwebtoken';
 import { prisma } from '@/lib/db';
-import { config } from '@/lib/config';
 import { getUserId } from '@/lib/auth';
 
 // Mock outputs for demo (in production, this comes from AI processing)

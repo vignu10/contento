@@ -29,7 +29,7 @@ export function middleware(request: NextRequest) {
   try {
     verify(token, appConfig.jwtSecret);
     return NextResponse.next();
-  } catch (error) {
+  } catch {
     // Token is invalid or expired
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });

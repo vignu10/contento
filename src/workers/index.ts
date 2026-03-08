@@ -1,19 +1,17 @@
-import { contentQueue, JOB_TYPES } from '../lib/queue';
-import { transcribeFromFile } from '../services/transcription';
-import { generateOutputs } from '../services/ai';
-import { getVideoInfo, extractVideoId } from '../services/youtube';
-import { prisma } from '../lib/db';
-import { getFile } from '../lib/storage';
+import { contentQueue, JOB_TYPES } from '@/lib/queue';
+import { transcribeFromFile } from '@/services/transcription';
+import { generateOutputs } from '@/services/ai';
+import { prisma } from '@/lib/db';
+import { getFile } from '@/lib/storage';
 
 // Transcribe job handler
 contentQueue.process(JOB_TYPES.TRANSCRIBE, async (job) => {
-  const { contentId, sourceFile, sourceUrl, sourceType } = job.data;
+  const { contentId, sourceFile, sourceType } = job.data;
 
   console.log(`[Worker] Transcribing content: ${contentId}`);
 
   try {
     let transcript: string;
-    let segments: any[] = [];
 
     if (sourceType === 'youtube') {
       // For YouTube, we'd download audio first (using yt-dlp or similar)
@@ -24,7 +22,6 @@ contentQueue.process(JOB_TYPES.TRANSCRIBE, async (job) => {
       const fileBuffer = await getFile(sourceFile);
       const result = await transcribeFromFile(fileBuffer, sourceFile);
       transcript = result.text;
-      segments = result.segments || [];
     } else {
       throw new Error('No source file provided');
     }
