@@ -54,6 +54,10 @@ interface Content {
   createdAt: string;
 }
 
+interface ContentApiResponse {
+  content: Content | null;
+}
+
 export default function ContentDetail() {
   const router = useRouter();
   const params = useParams();
@@ -77,7 +81,7 @@ export default function ContentDetail() {
 
   async function fetchContent() {
     const res = await fetch(`/api/content?contentId=${contentId}`);
-    const data = await res.json();
+    const data = await res.json() as ContentApiResponse;
     setContent(data.content);
     setLoading(false);
   }

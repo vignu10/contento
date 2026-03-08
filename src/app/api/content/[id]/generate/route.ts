@@ -65,8 +65,10 @@ function generateMockOutputs(title: string) {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
     const userId = getUserId(request);
     if (!userId) {
@@ -75,7 +77,7 @@ export async function POST(
 
     // ✅ Enforce ownership
     const content = await prisma.content.findFirst({
-      where: { id: params.id, userId },
+      where: { id, userId },
     });
 
     if (!content) {
@@ -87,58 +89,58 @@ export async function POST(
 
     // Delete existing outputs
     await prisma.output.deleteMany({
-      where: { contentId: params.id },
+      where: { contentId: id },
     });
 
     // Create new outputs
     const outputPromises = [
       prisma.output.create({
         data: {
-          contentId: params.id,
+          contentId: id,
           format: 'twitter_thread',
           data: JSON.stringify(outputs.twitterThread),
         },
       }),
       prisma.output.create({
         data: {
-          contentId: params.id,
+          contentId: id,
           format: 'linkedin_post',
           data: JSON.stringify({ text: outputs.linkedinPost }),
         },
       }),
       prisma.output.create({
         data: {
-          contentId: params.id,
+          contentId: id,
           format: 'newsletter',
           data: JSON.stringify({ text: outputs.newsletter }),
         },
       }),
       prisma.output.create({
         data: {
-          contentId: params.id,
+          contentId: id,
           format: 'tiktok_clip',
           data: JSON.stringify(outputs.tiktokClips),
         },
       }),
       prisma.output.create({
         data: {
-          contentId: params.id,
+          contentId: id,
           format: 'quote_graphic',
           data: JSON.stringify(outputs.quoteGraphics),
         },
       }),
       prisma.output.create({
         data: {
-          contentId: params.id,
+          contentId: id,
           format: 'seo_summary',
           data: JSON.stringify({ text: outputs.seoSummary }),
         },
       }),
       prisma.output.create({
         data: {
-          contentId: params.id,
+          contentId: id,
           format: 'instagram_caption',
-          data: JSON.stringify({ 
+          data: JSON.stringify({
             caption: outputs.instagramCaption,
             hashtags: outputs.hashtags,
           }),
@@ -150,7 +152,7 @@ export async function POST(
 
     // Update content status
     await prisma.content.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: 'completed',
         processedAt: new Date(),
