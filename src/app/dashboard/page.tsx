@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -50,9 +50,9 @@ export default function Dashboard() {
   useEffect(() => {
     fetchUser();
     fetchContents();
-  }, []);
+  }, [fetchUser, fetchContents]);
 
-  async function fetchUser() {
+  const fetchUser = useCallback(async () => {
     const res = await fetch('/api/auth');
     const data = await res.json();
     if (!data.user) {
@@ -60,14 +60,14 @@ export default function Dashboard() {
       return;
     }
     setUser(data.user);
-  }
+  }, [router]);
 
-  async function fetchContents() {
+  const fetchContents = useCallback(async () => {
     const res = await fetch('/api/content');
     const data = await res.json();
     setContents(data.contents || []);
     setLoading(false);
-  }
+  }, []);
 
   async function handleYoutubeSubmit(e: React.FormEvent) {
     e.preventDefault();
