@@ -64,7 +64,7 @@ export const createContentFormSchema = z.object({
 });
 
 export type CreateContentJsonInput = z.infer<typeof createContentJsonSchema>;
-export type CreateContentFormInput = z.infer<typeof createActionSchema>;
+export type CreateContentFormInput = z.infer<typeof createContentFormSchema>;
 
 // Output update schema
 export const updateOutputSchema = z.object({
