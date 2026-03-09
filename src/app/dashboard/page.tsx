@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -20,9 +20,20 @@ import {
   ArrowRight,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  DownloadCloud,
+  Search,
+  Filter,
+  X
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Content {
   id: string;
@@ -46,6 +57,11 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('all');
 
   const fetchUser = useCallback(async () => {
     const res = await fetch('/api/auth');
@@ -68,6 +84,41 @@ export default function Dashboard() {
     fetchUser();
     fetchContents();
   }, [fetchUser, fetchContents]);
+
+  // Filter and search contents
+  const filteredContents = useMemo(() => {
+    return contents.filter(content => {
+      // Filter by status
+      if (statusFilter !== 'all' && content.status !== statusFilter) {
+        return false;
+      }
+      
+      // Filter by source type
+      if (sourceTypeFilter !== 'all' && content.sourceType !== sourceTypeFilter) {
+        return false;
+      }
+      
+      // Search by title
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const title = (content.title || 'untitled').toLowerCase();
+        return title.includes(query);
+      }
+      
+      return true;
+    });
+  }, [contents, searchQuery, statusFilter, sourceTypeFilter]);
+
+  // Check if any filters are active
+  const hasActiveFilters = useMemo(() => {
+    return searchQuery !== '' || statusFilter !== 'all' || sourceTypeFilter !== 'all';
+  }, [searchQuery, statusFilter, sourceTypeFilter]);
+
+  function clearFilters() {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setSourceTypeFilter('all');
+  }
 
   async function handleYoutubeSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -130,6 +181,26 @@ export default function Dashboard() {
       headers: { 'Content-Type': 'application/json' }
     });
     router.push('/');
+  }
+
+  async function handleExportHistory() {
+    try {
+      const res = await fetch('/api/content/export');
+      if (!res.ok) throw new Error('Export failed');
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contento-export-history-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export content history. Please try again.');
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -276,10 +347,18 @@ export default function Dashboard() {
         {/* Content History */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-violet-600" />
-              Your Content
-            </CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-violet-600" />
+                <CardTitle>Your Content</CardTitle>
+              </div>
+              {contents.length > 0 && (
+                <Button variant="outline" size="sm" onClick={handleExportHistory}>
+                  <DownloadCloud className="h-4 w-4 mr-2" />
+                  Export History
+                </Button>
+              )}
+            </div>
             <CardDescription>
               {contents.length === 0 
                 ? "No content processed yet. Start by uploading or pasting a URL above!"
@@ -288,21 +367,101 @@ export default function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {contents.length === 0 ? (
+            {/* Search and Filter Bar */}
+            {contents.length > 0 && (
+              <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-4">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search by title..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap gap-3">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-slate-400" />
+                    <span className="text-sm text-slate-600 dark:text-slate-400">Filters:</span>
+                  </div>
+
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="processing">Processing</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={sourceTypeFilter} onValueChange={setSourceTypeFilter}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="youtube">YouTube</SelectItem>
+                      <SelectItem value="audio">Audio</SelectItem>
+                      <SelectItem value="video">Video</SelectItem>
+                      <SelectItem value="pdf">PDF</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {hasActiveFilters && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearFilters}
+                      className="text-slate-600 dark:text-slate-400"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+
+                {/* Results count */}
+                {hasActiveFilters && (
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    Showing {filteredContents.length} of {contents.length} items
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Content List */}
+            {filteredContents.length === 0 ? (
               <div className="text-center py-12">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
                   <FileText className="h-8 w-8 text-slate-400" />
                 </div>
                 <p className="text-slate-500 dark:text-slate-400">
-                  No content processed yet
+                  {hasActiveFilters ? 'No content matches your filters' : 'No content processed yet'}
                 </p>
-                <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
-                  Upload a file or paste a YouTube URL to get started
-                </p>
+                {hasActiveFilters ? (
+                  <Button
+                    variant="link"
+                    onClick={clearFilters}
+                    className="mt-2 text-violet-600 dark:text-violet-400"
+                  >
+                    Clear filters
+                  </Button>
+                ) : (
+                  <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+                    Upload a file or paste a YouTube URL to get started
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
-                {contents.map((content) => (
+                {filteredContents.map((content) => (
                   <Link
                     key={content.id}
                     href={`/content/${content.id}`}
