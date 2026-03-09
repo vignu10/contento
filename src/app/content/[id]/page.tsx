@@ -24,8 +24,17 @@ import {
   FileText,
   Instagram,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Download,
+  DownloadCloud
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Output {
   id: string;
@@ -68,6 +77,7 @@ export default function ContentDetail() {
   const [activeTab, setActiveTab] = useState('twitter_thread');
   const [copied, setCopied] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [exporting, setExporting] = useState<string | null>(null);
 
   const fetchContent = useCallback(async () => {
     const res = await fetch(`/api/content?contentId=${contentId}`);
@@ -90,6 +100,52 @@ export default function ContentDetail() {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function downloadOutput(format: string, downloadFormat: string = 'json') {
+    setExporting(`${format}-${downloadFormat}`);
+    try {
+      const res = await fetch(`/api/content/${contentId}/export?format=json&output=${format}`);
+      if (!res.ok) throw new Error('Download failed');
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contento-${format}-${Date.now()}.${downloadFormat === 'json' ? 'json' : downloadFormat}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Failed to download output. Please try again.');
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  async function exportAll(format: string = 'zip') {
+    setExporting(`all-${format}`);
+    try {
+      const res = await fetch(`/api/content/${contentId}/export?format=${format}`);
+      if (!res.ok) throw new Error('Export failed');
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contento-export-${contentId}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export content. Please try again.');
+    } finally {
+      setExporting(null);
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -148,6 +204,21 @@ export default function ContentDetail() {
     );
   }
 
+  function DownloadButton({ format }: { format: string }) {
+    return (
+      <Select onValueChange={(value) => downloadOutput(format, value)}>
+        <SelectTrigger className="h-8 w-[140px]">
+          <Download className="h-3 w-3 mr-2" />
+          <SelectValue placeholder="Download" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="json">JSON</SelectItem>
+          <SelectItem value="txt">TXT</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+  }
+
   function renderOutput(output: Output) {
     const data = parseOutputData(output);
 
@@ -159,7 +230,9 @@ export default function ContentDetail() {
               <Card key={i}>
                 <CardContent className="p-4">
                   <p className="whitespace-pre-wrap mb-3">{tweet}</p>
-                  <CopyButton text={tweet} id={`tweet-${i}`} />
+                  <div className="flex gap-2">
+                    <CopyButton text={tweet} id={`tweet-${i}`} />
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -171,7 +244,9 @@ export default function ContentDetail() {
           <Card>
             <CardContent className="p-4">
               <p className="whitespace-pre-wrap mb-4">{data.text || data}</p>
-              <CopyButton text={data.text || data} id="linkedin" />
+              <div className="flex gap-2">
+                <CopyButton text={data.text || data} id="linkedin" />
+              </div>
             </CardContent>
           </Card>
         );
@@ -184,7 +259,9 @@ export default function ContentDetail() {
                 <p className="whitespace-pre-wrap">{data.text || data}</p>
               </div>
               <Separator className="my-4" />
-              <CopyButton text={data.text || data} id="newsletter" />
+              <div className="flex gap-2">
+                <CopyButton text={data.text || data} id="newsletter" />
+              </div>
             </CardContent>
           </Card>
         );
@@ -201,7 +278,9 @@ export default function ContentDetail() {
                     {clip.timestamp?.start}s - {clip.timestamp?.end}s
                   </p>
                   <p className="whitespace-pre-wrap mb-3">{clip.script}</p>
-                  <CopyButton text={clip.script} id={`clip-${i}`} />
+                  <div className="flex gap-2">
+                    <CopyButton text={clip.script} id={`clip-${i}`} />
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -216,24 +295,26 @@ export default function ContentDetail() {
                 <CardContent className="p-6">
                   <Quote className="h-6 w-6 mb-3 opacity-50" />
                   <p className="text-lg font-medium mb-4">&ldquo;{quote}&rdquo;</p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => copyToClipboard(quote, `quote-${i}`)}
-                    className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-                  >
-                    {copied === `quote-${i}` ? (
-                      <>
-                        <Check className="h-3 w-3 mr-1" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3 mr-1" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => copyToClipboard(quote, `quote-${i}`)}
+                      className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                    >
+                      {copied === `quote-${i}` ? (
+                        <>
+                          <Check className="h-3 w-3 mr-1" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3 mr-1" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -248,7 +329,9 @@ export default function ContentDetail() {
                 <p className="whitespace-pre-wrap">{data.text || data}</p>
               </div>
               <Separator className="my-4" />
-              <CopyButton text={data.text || data} id="seo" />
+              <div className="flex gap-2">
+                <CopyButton text={data.text || data} id="seo" />
+              </div>
             </CardContent>
           </Card>
         );
@@ -265,10 +348,12 @@ export default function ContentDetail() {
                   </Badge>
                 ))}
               </div>
-              <CopyButton 
-                text={`${data.caption}\n\n${data.hashtags.map((t: string) => `#${t}`).join(' ')}`} 
-                id="instagram" 
-              />
+              <div className="flex gap-2">
+                <CopyButton 
+                  text={`${data.caption}\n\n${data.hashtags.map((t: string) => `#${t}`).join(' ')}`} 
+                  id="instagram" 
+                />
+              </div>
             </CardContent>
           </Card>
         );
@@ -337,7 +422,29 @@ export default function ContentDetail() {
                 </p>
               </div>
             </div>
-            {getStatusBadge(content.status)}
+            <div className="flex items-center gap-3">
+              {getStatusBadge(content.status)}
+              {content.status === 'completed' && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => exportAll('zip')}
+                  disabled={exporting === 'all-zip'}
+                >
+                  {exporting === 'all-zip' ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <DownloadCloud className="h-4 w-4 mr-2" />
+                      Export All
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -381,7 +488,12 @@ export default function ContentDetail() {
             return (
               <TabsContent key={tab.id} value={tab.id}>
                 {output ? (
-                  renderOutput(output)
+                  <div className="space-y-4">
+                    <div className="flex justify-end">
+                      <DownloadButton format={tab.id} />
+                    </div>
+                    {renderOutput(output)}
+                  </div>
                 ) : (
                   <Card>
                     <CardContent className="p-8 text-center">
@@ -400,18 +512,38 @@ export default function ContentDetail() {
         {content.transcript && (
           <Card className="mt-8">
             <CardHeader>
-              <Button
-                variant="ghost"
-                onClick={() => setShowTranscript(!showTranscript)}
-                className="w-full justify-between"
-              >
-                <CardTitle className="text-lg">Full Transcript</CardTitle>
-                {showTranscript ? (
-                  <ChevronUp className="h-4 w-4" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" />
-                )}
-              </Button>
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowTranscript(!showTranscript)}
+                  className="justify-start flex-1"
+                >
+                  <CardTitle className="text-lg">Full Transcript</CardTitle>
+                  {showTranscript ? (
+                    <ChevronUp className="h-4 w-4 ml-auto" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 ml-auto" />
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const blob = new Blob([content.transcript!], { type: 'text/plain' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `transcript-${contentId}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </div>
             </CardHeader>
             {showTranscript && (
               <CardContent>

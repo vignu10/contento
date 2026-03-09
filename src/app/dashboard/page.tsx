@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  DownloadCloud
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 
@@ -130,6 +131,26 @@ export default function Dashboard() {
       headers: { 'Content-Type': 'application/json' }
     });
     router.push('/');
+  }
+
+  async function handleExportHistory() {
+    try {
+      const res = await fetch('/api/content/export');
+      if (!res.ok) throw new Error('Export failed');
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contento-export-history-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export content history. Please try again.');
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -276,10 +297,18 @@ export default function Dashboard() {
         {/* Content History */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-violet-600" />
-              Your Content
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-violet-600" />
+                <CardTitle>Your Content</CardTitle>
+              </div>
+              {contents.length > 0 && (
+                <Button variant="outline" size="sm" onClick={handleExportHistory}>
+                  <DownloadCloud className="h-4 w-4 mr-2" />
+                  Export History
+                </Button>
+              )}
+            </div>
             <CardDescription>
               {contents.length === 0 
                 ? "No content processed yet. Start by uploading or pasting a URL above!"
