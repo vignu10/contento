@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowLeft,
   Loader2,
@@ -24,7 +25,10 @@ import {
   FileText,
   Instagram,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Edit2,
+  Trash2,
+  X
 } from 'lucide-react';
 
 interface Output {
@@ -68,6 +72,11 @@ export default function ContentDetail() {
   const [activeTab, setActiveTab] = useState('twitter_thread');
   const [copied, setCopied] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [editingOutput, setEditingOutput] = useState<{ id: string; format: string } | null>(null);
+  const [editText, setEditText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchContent = useCallback(async () => {
     const res = await fetch(`/api/content?contentId=${contentId}`);
@@ -90,6 +99,98 @@ export default function ContentDetail() {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
+  }
+
+  function handleEdit(output: Output) {
+    setEditingOutput({ id: output.id, format: output.format });
+    const data = parseOutputData(output);
+    
+    if (typeof data === 'string') {
+      setEditText(data);
+    } else {
+      setEditText(JSON.stringify(data, null, 2));
+    }
+  }
+
+  async function handleSaveEdit() {
+    if (!editingOutput) return;
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/content/${contentId}/outputs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          outputId: editingOutput.id,
+          editedData: editText,
+        }),
+      });
+
+      if (res.ok) {
+        await fetchContent();
+        setEditingOutput(null);
+      } else {
+        alert('Failed to save edit');
+      }
+    } catch (error) {
+      console.error('Failed to save edit:', error);
+      alert('Failed to save edit');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancelEdit() {
+    setEditingOutput(null);
+    setEditText('');
+  }
+
+  async function handleRevertEdit(output: Output) {
+    if (!confirm('Revert to original AI-generated content? This will discard your edits.')) return;
+
+    try {
+      const res = await fetch(`/api/content/${contentId}/outputs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          outputId: output.id,
+          editedData: null, // Revert to original
+        }),
+      });
+
+      if (res.ok) {
+        await fetchContent();
+      } else {
+        alert('Failed to revert edit');
+      }
+    } catch (error) {
+      console.error('Failed to revert edit:', error);
+      alert('Failed to revert edit');
+    }
+  }
+
+  async function handleDelete() {
+    if (!content) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/content/${contentId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        router.push('/dashboard');
+      } else {
+        alert('Failed to delete content');
+        setShowDeleteDialog(false);
+      }
+    } catch (error) {
+      console.error('Failed to delete content:', error);
+      alert('Failed to delete content');
+      setShowDeleteDialog(false);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -148,6 +249,20 @@ export default function ContentDetail() {
     );
   }
 
+  function EditButton({ output }: { output: Output }) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => handleEdit(output)}
+        className="h-8"
+      >
+        <Edit2 className="h-3 w-3 mr-1" />
+        {output.editedData ? 'Edited' : 'Edit'}
+      </Button>
+    );
+  }
+
   function renderOutput(output: Output) {
     const data = parseOutputData(output);
 
@@ -159,7 +274,9 @@ export default function ContentDetail() {
               <Card key={i}>
                 <CardContent className="p-4">
                   <p className="whitespace-pre-wrap mb-3">{tweet}</p>
-                  <CopyButton text={tweet} id={`tweet-${i}`} />
+                  <div className="flex gap-2">
+                    <CopyButton text={tweet} id={`tweet-${i}`} />
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -171,7 +288,9 @@ export default function ContentDetail() {
           <Card>
             <CardContent className="p-4">
               <p className="whitespace-pre-wrap mb-4">{data.text || data}</p>
-              <CopyButton text={data.text || data} id="linkedin" />
+              <div className="flex gap-2">
+                <CopyButton text={data.text || data} id="linkedin" />
+              </div>
             </CardContent>
           </Card>
         );
@@ -318,6 +437,88 @@ export default function ContentDetail() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Delete Content</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-slate-600 dark:text-slate-400">
+                Are you sure you want to delete "{content.title || 'this content'}"? 
+                This action cannot be undone and will delete all generated outputs.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowDeleteDialog(false)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingOutput && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Edit Output</CardTitle>
+                <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="min-h-[300px] font-mono text-sm"
+                placeholder="Edit the content..."
+              />
+              <div className="flex gap-3 justify-end">
+                <Button variant="outline" onClick={handleCancelEdit} disabled={saving}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEdit} disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm dark:bg-slate-900/80 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -337,7 +538,17 @@ export default function ContentDetail() {
                 </p>
               </div>
             </div>
-            {getStatusBadge(content.status)}
+            <div className="flex items-center gap-3">
+              {getStatusBadge(content.status)}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -381,7 +592,29 @@ export default function ContentDetail() {
             return (
               <TabsContent key={tab.id} value={tab.id}>
                 {output ? (
-                  renderOutput(output)
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      {output.editedData && (
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          Edited
+                        </Badge>
+                      )}
+                      <div className="flex gap-2 ml-auto">
+                        {output.editedData && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRevertEdit(output)}
+                          >
+                            Revert to Original
+                          </Button>
+                        )}
+                        <EditButton output={output} />
+                      </div>
+                    </div>
+                    {renderOutput(output)}
+                  </div>
                 ) : (
                   <Card>
                     <CardContent className="p-8 text-center">

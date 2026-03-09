@@ -20,7 +20,9 @@ import {
   ArrowRight,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  X
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 
@@ -46,6 +48,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState<Content | null>(null);
 
   const fetchUser = useCallback(async () => {
     const res = await fetch('/api/auth');
@@ -123,6 +127,34 @@ export default function Dashboard() {
     }
   }
 
+  function handleDeleteClick(content: Content, e: React.MouseEvent) {
+    e.preventDefault();
+    setShowDeleteDialog(content);
+  }
+
+  async function handleDeleteConfirm() {
+    if (!showDeleteDialog) return;
+
+    setDeletingId(showDeleteDialog.id);
+    try {
+      const res = await fetch(`/api/content/${showDeleteDialog.id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        await fetchContents();
+        setShowDeleteDialog(null);
+      } else {
+        alert('Failed to delete content');
+      }
+    } catch (error) {
+      console.error('Failed to delete content:', error);
+      alert('Failed to delete content');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   async function handleLogout() {
     await fetch('/api/auth', {
       method: 'POST',
@@ -175,6 +207,49 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+      {/* Delete Confirmation Dialog */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Delete Content</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-slate-600 dark:text-slate-400">
+                Are you sure you want to delete "{showDeleteDialog.title || 'this content'}"? 
+                This action cannot be undone and will delete all generated outputs.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowDeleteDialog(null)}
+                  disabled={deletingId === showDeleteDialog.id}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleDeleteConfirm}
+                  disabled={deletingId === showDeleteDialog.id}
+                >
+                  {deletingId === showDeleteDialog.id ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm dark:bg-slate-900/80 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -337,7 +412,17 @@ export default function Dashboard() {
                               )}
                             </div>
                           </div>
-                          {getStatusBadge(content.status)}
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(content.status)}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => handleDeleteClick(content, e)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/50 h-8 w-8 p-0"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
