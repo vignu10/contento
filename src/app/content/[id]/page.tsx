@@ -24,7 +24,9 @@ import {
   FileText,
   Instagram,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Download,
+  RefreshCw
 } from 'lucide-react';
 
 interface Output {
@@ -68,6 +70,8 @@ export default function ContentDetail() {
   const [activeTab, setActiveTab] = useState('twitter_thread');
   const [copied, setCopied] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const fetchContent = useCallback(async () => {
     const res = await fetch(`/api/content?contentId=${contentId}`);
@@ -90,6 +94,58 @@ export default function ContentDetail() {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function handleExport(format: 'json' | 'transcript') {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/content/${contentId}/export?format=${format}`);
+      if (!res.ok) {
+        throw new Error('Export failed');
+      }
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      const filename = content?.title?.replace(/[^a-z0-9]/gi, '-') || contentId;
+      const date = new Date().toISOString().split('T')[0];
+      
+      a.download = `contento-${filename}-${date}.${format === 'json' ? 'json' : 'txt'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export content');
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  async function handleRetry() {
+    if (!confirm('Retry processing this content? This will regenerate all outputs.')) return;
+
+    setRetrying(true);
+    try {
+      const res = await fetch(`/api/content/${contentId}/retry`, {
+        method: 'POST',
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Retry failed');
+      }
+
+      await fetchContent();
+    } catch (error: any) {
+      console.error('Retry failed:', error);
+      alert(error.message || 'Failed to retry. Please try again later.');
+    } finally {
+      setRetrying(false);
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -337,13 +393,96 @@ export default function ContentDetail() {
                 </p>
               </div>
             </div>
-            {getStatusBadge(content.status)}
+            <div className="flex items-center gap-3">
+              {getStatusBadge(content.status)}
+              {content.status === 'failed' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetry}
+                  disabled={retrying}
+                  className="text-amber-600 border-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-400 dark:hover:bg-amber-950/50"
+                >
+                  {retrying ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Retrying...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Retry
+                    </>
+                  )}
+                </Button>
+              )}
+              {content.status === 'completed' && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleExport('transcript')}
+                    disabled={downloading}
+                  >
+                    {downloading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Transcript
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleExport('json')}
+                    disabled={downloading}
+                  >
+                    {downloading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export All
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Status Banner */}
+        {content.status === 'failed' && (
+          <Card className="mb-6 border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  <div>
+                    <p className="font-medium text-red-800 dark:text-red-200">
+                      Processing Failed
+                    </p>
+                    <p className="text-sm text-red-600 dark:text-red-300">
+                      There was an error processing your content. This could be due to a network issue or API rate limit.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {(content.status === 'pending' || content.status === 'processing') && (
           <Card className="mb-6 border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-900">
             <CardContent className="p-4">
