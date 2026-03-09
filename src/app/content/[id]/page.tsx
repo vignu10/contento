@@ -24,7 +24,8 @@ import {
   FileText,
   Instagram,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Download
 } from 'lucide-react';
 
 interface Output {
@@ -68,6 +69,7 @@ export default function ContentDetail() {
   const [activeTab, setActiveTab] = useState('twitter_thread');
   const [copied, setCopied] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const fetchContent = useCallback(async () => {
     const res = await fetch(`/api/content?contentId=${contentId}`);
@@ -90,6 +92,35 @@ export default function ContentDetail() {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function handleExport(format: 'json' | 'transcript') {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/content/${contentId}/export?format=${format}`);
+      if (!res.ok) {
+        throw new Error('Export failed');
+      }
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      const filename = content?.title?.replace(/[^a-z0-9]/gi, '-') || contentId;
+      const date = new Date().toISOString().split('T')[0];
+      
+      a.download = `contento-${filename}-${date}.${format === 'json' ? 'json' : 'txt'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export content');
+    } finally {
+      setDownloading(false);
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -337,7 +368,49 @@ export default function ContentDetail() {
                 </p>
               </div>
             </div>
-            {getStatusBadge(content.status)}
+            <div className="flex items-center gap-3">
+              {getStatusBadge(content.status)}
+              {content.status === 'completed' && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleExport('transcript')}
+                    disabled={downloading}
+                  >
+                    {downloading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Transcript
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleExport('json')}
+                    disabled={downloading}
+                  >
+                    {downloading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export All
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>

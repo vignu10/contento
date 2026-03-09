@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Download
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 
@@ -46,6 +47,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const fetchUser = useCallback(async () => {
     const res = await fetch('/api/auth');
@@ -120,6 +122,31 @@ export default function Dashboard() {
       alert('Failed to upload file');
     } finally {
       setProcessing(false);
+    }
+  }
+
+  async function handleExportHistory() {
+    setExporting(true);
+    try {
+      const res = await fetch('/api/content/export?format=csv');
+      if (!res.ok) {
+        throw new Error('Export failed');
+      }
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contento-history-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export history');
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -276,16 +303,40 @@ export default function Dashboard() {
         {/* Content History */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-violet-600" />
-              Your Content
-            </CardTitle>
-            <CardDescription>
-              {contents.length === 0 
-                ? "No content processed yet. Start by uploading or pasting a URL above!"
-                : `${contents.length} piece${contents.length !== 1 ? 's' : ''} of content processed`
-              }
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-violet-600" />
+                  Your Content
+                </CardTitle>
+                <CardDescription>
+                  {contents.length === 0 
+                    ? "No content processed yet. Start by uploading or pasting a URL above!"
+                    : `${contents.length} piece${contents.length !== 1 ? 's' : ''} of content processed`
+                  }
+                </CardDescription>
+              </div>
+              {contents.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportHistory}
+                  disabled={exporting}
+                >
+                  {exporting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      Export History
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {contents.length === 0 ? (
