@@ -6,6 +6,7 @@ import { getUserId } from '@/lib/auth';
 import { createContentJsonSchema } from '@/lib/validation';
 import fileType from 'file-type';
 import { uploadFile, generateFileKey } from '@/lib/storage';
+import { downloadYouTubeAudio } from '@/services/youtube-download';
 
 // Maximum file size: 100MB
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
@@ -13,12 +14,6 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024;
 interface FileUploadResult {
   sourceType: string;
   sourceFile: string;
-  title: string;
-}
-
-interface YouTubeSubmissionResult {
-  sourceType: string;
-  sourceUrl: string;
   title: string;
 }
 
@@ -136,11 +131,19 @@ async function processFileUpload(
   }
 }
 
+interface YouTubeSubmissionResult {
+  sourceType: string;
+  sourceUrl: string;
+  title: string;
+  sourceFile?: string;
+}
+
 /**
  * Process YouTube URL submission
  */
 async function processYouTubeSubmission(
-  body: unknown
+  body: unknown,
+  userId: string
 ): Promise<YouTubeSubmissionResult | NextResponse> {
   // Validate input
   const validated = createContentJsonSchema.safeParse(body);
@@ -173,10 +176,26 @@ async function processYouTubeSubmission(
     // Get video title
     try {
       const videoInfo = await getVideoInfo(sourceUrl);
+
+      // Download audio if S3 is not configured (use local storage)
+      let sourceFile: string | undefined;
+      if (!config.awsAccessKeyId || !config.awsSecretAccessKey) {
+        try {
+          console.log(`[YouTube] Downloading audio for ${videoId}...`);
+          const downloadResult = await downloadYouTubeAudio(sourceUrl, userId);
+          sourceFile = downloadResult.audioFile;
+          console.log(`[YouTube] Audio downloaded: ${downloadResult.audioFile} (${(downloadResult.size / 1024 / 1024).toFixed(2)} MB)`);
+        } catch (downloadError) {
+          console.error('[YouTube] Audio download failed:', downloadError);
+          // Continue without audio file - will show error in generation phase
+        }
+      }
+
       return {
         sourceType,
         sourceUrl,
         title: videoInfo.title,
+        sourceFile,
       };
     } catch (e) {
       console.error('Failed to fetch video info:', e);
@@ -248,7 +267,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
       }
 
-      const youtubeResult = await processYouTubeSubmission(body);
+      const youtubeResult = await processYouTubeSubmission(body, userId);
 
       if (youtubeResult instanceof NextResponse) {
         return youtubeResult; // Return error response
@@ -257,6 +276,7 @@ export async function POST(request: NextRequest) {
       sourceType = youtubeResult.sourceType;
       sourceUrl = youtubeResult.sourceUrl;
       title = youtubeResult.title;
+      sourceFile = youtubeResult.sourceFile; // May be set if audio was downloaded
     }
 
     // Create content record
