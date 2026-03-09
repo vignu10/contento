@@ -24,7 +24,8 @@ import {
   FileText,
   Instagram,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  RefreshCw
 } from 'lucide-react';
 
 interface Output {
@@ -68,6 +69,7 @@ export default function ContentDetail() {
   const [activeTab, setActiveTab] = useState('twitter_thread');
   const [copied, setCopied] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const fetchContent = useCallback(async () => {
     const res = await fetch(`/api/content?contentId=${contentId}`);
@@ -90,6 +92,30 @@ export default function ContentDetail() {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function handleRetry() {
+    if (!content || retrying) return;
+
+    setRetrying(true);
+    try {
+      const res = await fetch(`/api/content/${content.id}/retry`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        // Refresh content after retry
+        setTimeout(fetchContent, 1000);
+      } else {
+        alert(data.error || 'Failed to retry content');
+      }
+    } catch (error) {
+      console.error('Retry error:', error);
+      alert('Failed to retry content. Please try again.');
+    } finally {
+      setRetrying(false);
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -352,6 +378,40 @@ export default function ContentDetail() {
                 <p className="text-yellow-800 dark:text-yellow-200">
                   Processing your content... This usually takes 30-60 seconds. Page will auto-refresh.
                 </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Failed Banner with Retry */}
+        {content.status === 'failed' && (
+          <Card className="mb-6 border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                  <p className="text-red-800 dark:text-red-200">
+                    Content processing failed. You can retry or delete this content.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleRetry}
+                  disabled={retrying}
+                  variant="default"
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {retrying ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Retrying...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Retry
+                    </>
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
