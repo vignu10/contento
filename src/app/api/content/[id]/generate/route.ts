@@ -1,8 +1,187 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
+import { generateOutputs } from '@/services/ai';
+import { transcribeFromFile } from '@/services/transcription';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
+import { existsSync } from 'fs';
+import { config as libConfig } from '@/lib/config';
 
-// Mock outputs for demo (in production, this comes from AI processing)
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  try {
+    const userId = getUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // ✅ Enforce ownership
+    const content = await prisma.content.findFirst({
+      where: { id, userId },
+    });
+
+    if (!content) {
+      return NextResponse.json({ error: 'Content not found' }, { status: 404 });
+    }
+
+    // Update status to processing
+    await prisma.content.update({
+      where: { id },
+      data: { status: 'processing' },
+    });
+
+    let transcript = '';
+    let outputs;
+
+    try {
+      // Step 1: Transcribe if not already done
+      if (content.transcript) {
+        transcript = content.transcript;
+      } else if (content.sourceFile) {
+        // Audio file already uploaded/downloaded
+        let audioPath: string | null = null;
+
+        // Check if it's a local file (YouTube download)
+        if (!libConfig.awsAccessKeyId || !libConfig.awsSecretAccessKey) {
+          // Local filesystem storage
+          const tempDir = join(process.cwd(), 'tmp', 'youtube-audio');
+          audioPath = join(tempDir, content.sourceFile);
+        }
+
+        // If no local file or S3 is configured, skip transcription for now
+        // (In production, you'd download from S3)
+        if (audioPath && existsSync(audioPath)) {
+          const audioBuffer = await readFile(audioPath);
+          const filename = content.sourceFile;
+          const result = await transcribeFromFile(audioBuffer, filename);
+          transcript = result.text;
+
+          // Save transcript
+          await prisma.content.update({
+            where: { id },
+            data: { transcript },
+          });
+        } else {
+          // No audio file available - use placeholder
+          transcript = `[Transcript not available. Audio file not found for: ${content.title}]`;
+        }
+      } else if (content.sourceType === 'youtube') {
+        // YouTube URL but no downloaded audio
+        transcript = `[Transcript not available. Audio download required for YouTube videos. Please re-submit or use an audio upload instead.]`;
+      } else {
+        transcript = `[Transcript not available for ${content.sourceType} type.]`;
+      }
+
+      // Step 2: Generate AI outputs
+      // Only proceed if we have a meaningful transcript
+      if (transcript.includes('not available')) {
+        // Use mock outputs when transcript is not available
+        outputs = generateMockOutputs(content.title || 'Untitled Content');
+      } else {
+        outputs = await generateOutputs(transcript, content.title || 'Untitled');
+      }
+
+      // Step 3: Save outputs to database
+      // Delete existing outputs first
+      await prisma.output.deleteMany({
+        where: { contentId: id },
+      });
+
+      // Create new outputs
+      const outputPromises = [
+        prisma.output.create({
+          data: {
+            contentId: id,
+            format: 'twitter_thread',
+            data: JSON.stringify(outputs.twitterThread),
+          },
+        }),
+        prisma.output.create({
+          data: {
+            contentId: id,
+            format: 'linkedin_post',
+            data: JSON.stringify({ text: outputs.linkedinPost }),
+          },
+        }),
+        prisma.output.create({
+          data: {
+            contentId: id,
+            format: 'newsletter',
+            data: JSON.stringify({ text: outputs.newsletter }),
+          },
+        }),
+        prisma.output.create({
+          data: {
+            contentId: id,
+            format: 'tiktok_clip',
+            data: JSON.stringify(outputs.tiktokClips),
+          },
+        }),
+        prisma.output.create({
+          data: {
+            contentId: id,
+            format: 'quote_graphic',
+            data: JSON.stringify(outputs.quoteGraphics),
+          },
+        }),
+        prisma.output.create({
+          data: {
+            contentId: id,
+            format: 'seo_summary',
+            data: JSON.stringify({ text: outputs.seoSummary }),
+          },
+        }),
+        prisma.output.create({
+          data: {
+            contentId: id,
+            format: 'instagram_caption',
+            data: JSON.stringify({
+              caption: outputs.instagramCaption,
+              hashtags: outputs.hashtags,
+            }),
+          },
+        }),
+      ];
+
+      await Promise.all(outputPromises);
+
+      // Update content status to completed
+      await prisma.content.update({
+        where: { id },
+        data: {
+          status: 'completed',
+          processedAt: new Date(),
+          transcript: transcript || content.transcript,
+        },
+      });
+
+      return NextResponse.json({ success: true, outputsGenerated: 7 });
+    } catch (error) {
+      console.error('Error during generation:', error);
+
+      // Mark as failed
+      await prisma.content.update({
+        where: { id },
+        data: { status: 'failed' },
+      });
+
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error generating outputs:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate outputs' },
+      { status: 500 }
+    );
+  }
+}
+
+// Fallback mock outputs for demo
 function generateMockOutputs(title: string) {
   return {
     twitterThread: [
@@ -61,111 +240,4 @@ function generateMockOutputs(title: string) {
       "businesstips"
     ]
   };
-}
-
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-
-  try {
-    const userId = getUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // ✅ Enforce ownership
-    const content = await prisma.content.findFirst({
-      where: { id, userId },
-    });
-
-    if (!content) {
-      return NextResponse.json({ error: 'Content not found' }, { status: 404 });
-    }
-
-    // Generate mock outputs (in production, this would call AI)
-    const outputs = generateMockOutputs(content.title || 'Untitled Content');
-
-    // Delete existing outputs
-    await prisma.output.deleteMany({
-      where: { contentId: id },
-    });
-
-    // Create new outputs
-    const outputPromises = [
-      prisma.output.create({
-        data: {
-          contentId: id,
-          format: 'twitter_thread',
-          data: JSON.stringify(outputs.twitterThread),
-        },
-      }),
-      prisma.output.create({
-        data: {
-          contentId: id,
-          format: 'linkedin_post',
-          data: JSON.stringify({ text: outputs.linkedinPost }),
-        },
-      }),
-      prisma.output.create({
-        data: {
-          contentId: id,
-          format: 'newsletter',
-          data: JSON.stringify({ text: outputs.newsletter }),
-        },
-      }),
-      prisma.output.create({
-        data: {
-          contentId: id,
-          format: 'tiktok_clip',
-          data: JSON.stringify(outputs.tiktokClips),
-        },
-      }),
-      prisma.output.create({
-        data: {
-          contentId: id,
-          format: 'quote_graphic',
-          data: JSON.stringify(outputs.quoteGraphics),
-        },
-      }),
-      prisma.output.create({
-        data: {
-          contentId: id,
-          format: 'seo_summary',
-          data: JSON.stringify({ text: outputs.seoSummary }),
-        },
-      }),
-      prisma.output.create({
-        data: {
-          contentId: id,
-          format: 'instagram_caption',
-          data: JSON.stringify({
-            caption: outputs.instagramCaption,
-            hashtags: outputs.hashtags,
-          }),
-        },
-      }),
-    ];
-
-    await Promise.all(outputPromises);
-
-    // Update content status
-    await prisma.content.update({
-      where: { id },
-      data: {
-        status: 'completed',
-        processedAt: new Date(),
-        transcript: `[Mock transcript for: ${content.title}]\n\nThis is a placeholder transcript. In production, this would be the actual transcribed text from the audio/video content using OpenAI Whisper.`,
-      },
-    });
-
-    return NextResponse.json({ success: true, outputsGenerated: 7 });
-  } catch (error) {
-    console.error('Error generating outputs:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate outputs' },
-      { status: 500 }
-    );
-  }
 }
