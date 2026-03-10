@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
     // Fetch all content for user
     const contents = await prisma.content.findMany({
       where: { userId },
-      include: { 
+      include: {
         outputs: {
-          select: { format: true, _count: true }
+          select: { format: true }
         },
         _count: { select: { outputs: true } }
       },

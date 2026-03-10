@@ -21,9 +21,11 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
+import { Dialog } from '@/components/ui/dialog';
 
 interface Content {
   id: string;
@@ -48,6 +50,11 @@ export default function Dashboard() {
   const [processing, setProcessing] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; contentId: string | null }>({
+    isOpen: false,
+    contentId: null,
+  });
+  const [deleting, setDeleting] = useState(false);
 
   const fetchUser = useCallback(async () => {
     const res = await fetch('/api/auth');
@@ -157,6 +164,28 @@ export default function Dashboard() {
       headers: { 'Content-Type': 'application/json' }
     });
     router.push('/');
+  }
+
+  async function handleDelete(contentId: string) {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/content/${contentId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setDeleteDialog({ isOpen: false, contentId: null });
+        fetchContents();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete content. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to delete content:', error);
+      alert('Failed to delete content. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -388,7 +417,22 @@ export default function Dashboard() {
                               )}
                             </div>
                           </div>
-                          {getStatusBadge(content.status)}
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(content.status)}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDeleteDialog({ isOpen: true, contentId: content.id });
+                              }}
+                              aria-label="Delete content"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -399,6 +443,50 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </main>
+
+      <Dialog
+        isOpen={deleteDialog.isOpen}
+        onClose={() => setDeleteDialog({ isOpen: false, contentId: null })}
+        title="Delete Content?"
+        variant="danger"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteDialog({ isOpen: false, contentId: null })}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteDialog.contentId && handleDelete(deleteDialog.contentId)}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-slate-600 dark:text-slate-400">
+          Are you sure you want to delete this content? This will permanently remove:
+        </p>
+        <ul className="list-disc list-inside space-y-1 mt-3 text-slate-600 dark:text-slate-400">
+          <li>The content item</li>
+          <li>All generated outputs (threads, posts, clips, etc.)</li>
+          <li>The transcript</li>
+        </ul>
+        <p className="mt-4 text-sm text-slate-500 dark:text-slate-500">
+          This action cannot be undone.
+        </p>
+      </Dialog>
     </div>
   );
 }
