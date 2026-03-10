@@ -93,4 +93,12 @@ export const updateOutputSchema = z.object({
   editedData: z.string().optional(),
 });
 
+// Regenerate output schema
+export const regenerateOutputSchema = z.object({
+  prompt: z.string().optional(),
+  tone: z.enum(['professional', 'casual', 'enthusiastic', 'witty', 'serious']).optional(),
+  angle: z.enum(['educational', 'promotional', 'storytelling', 'controversial', 'inspiring']).optional(),
+});
+
 export type UpdateOutputInput = z.infer<typeof updateOutputSchema>;
+export type RegenerateOutputInput = z.infer<typeof regenerateOutputSchema>;
