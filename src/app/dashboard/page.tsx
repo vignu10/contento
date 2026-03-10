@@ -21,9 +21,11 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
+import { Dialog } from '@/components/ui/dialog';
 
 interface Content {
   id: string;
@@ -49,6 +51,21 @@ export default function Dashboard() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [exporting, setExporting] = useState(false);
 
+  // Delete dialog state
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; contentId: string | null }>({
+    isOpen: false,
+    contentId: null,
+  });
+  const [deleting, setDeleting] = useState(false);
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    search: '',
+    status: '',
+    sourceType: '',
+    sort: 'newest' as 'newest' | 'oldest',
+  });
+
   const fetchUser = useCallback(async () => {
     const res = await fetch('/api/auth');
     const data = await res.json();
@@ -60,11 +77,18 @@ export default function Dashboard() {
   }, [router]);
 
   const fetchContents = useCallback(async () => {
-    const res = await fetch('/api/content');
+    const params = new URLSearchParams();
+    if (filters.search) params.set('search', filters.search);
+    if (filters.status) params.set('status', filters.status);
+    if (filters.sourceType) params.set('sourceType', filters.sourceType);
+    if (filters.sort) params.set('sort', filters.sort);
+
+    const queryString = params.toString();
+    const res = await fetch(`/api/content${queryString ? `?${queryString}` : ''}`);
     const data = await res.json();
     setContents(data.contents || []);
     setLoading(false);
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     fetchUser();
@@ -157,6 +181,28 @@ export default function Dashboard() {
       headers: { 'Content-Type': 'application/json' }
     });
     router.push('/');
+  }
+
+  async function handleDelete(contentId: string) {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/content/${contentId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setDeleteDialog({ isOpen: false, contentId: null });
+        fetchContents();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete content. Please try again.');
+      }
+    } catch (error) {
+      console.error('Failed to delete content:', error);
+      alert('Failed to delete content. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function getStatusBadge(status: string) {
@@ -310,12 +356,75 @@ export default function Dashboard() {
                   Your Content
                 </CardTitle>
                 <CardDescription>
-                  {contents.length === 0 
+                  {contents.length === 0
                     ? "No content processed yet. Start by uploading or pasting a URL above!"
                     : `${contents.length} piece${contents.length !== 1 ? 's' : ''} of content processed`
                   }
                 </CardDescription>
               </div>
+
+              {/* Filters Toolbar */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Search Input */}
+                <div className="relative flex-1 min-w-[150px]">
+                  <Input
+                    type="text"
+                    placeholder="Search by title..."
+                    value={filters.search}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className="h-9"
+                  />
+                </div>
+
+                {/* Status Filter */}
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                  className="h-9 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="processing">Processing</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
+                </select>
+
+                {/* Source Type Filter */}
+                <select
+                  value={filters.sourceType}
+                  onChange={(e) => setFilters({ ...filters, sourceType: e.target.value })}
+                  className="h-9 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="">All Types</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="audio">Audio</option>
+                  <option value="video">Video</option>
+                  <option value="pdf">PDF</option>
+                </select>
+
+                {/* Sort Order */}
+                <select
+                  value={filters.sort}
+                  onChange={(e) => setFilters({ ...filters, sort: e.target.value as 'newest' | 'oldest' })}
+                  className="h-9 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="newest">Newest</option>
+                  <option value="oldest">Oldest</option>
+                </select>
+
+                {/* Clear Filters */}
+                {(filters.search || filters.status || filters.sourceType || filters.sort !== 'newest') && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFilters({ search: '', status: '', sourceType: '', sort: 'newest' })}
+                    className="h-9"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+
               {contents.length > 0 && (
                 <Button
                   variant="outline"
@@ -388,7 +497,22 @@ export default function Dashboard() {
                               )}
                             </div>
                           </div>
-                          {getStatusBadge(content.status)}
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(content.status)}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDeleteDialog({ isOpen: true, contentId: content.id });
+                              }}
+                              aria-label="Delete content"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -399,6 +523,50 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </main>
+
+      <Dialog
+        isOpen={deleteDialog.isOpen}
+        onClose={() => setDeleteDialog({ isOpen: false, contentId: null })}
+        title="Delete Content?"
+        variant="danger"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteDialog({ isOpen: false, contentId: null })}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteDialog.contentId && handleDelete(deleteDialog.contentId)}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-slate-600 dark:text-slate-400">
+          Are you sure you want to delete this content? This will permanently remove:
+        </p>
+        <ul className="list-disc list-inside space-y-1 mt-3 text-slate-600 dark:text-slate-400">
+          <li>The content item</li>
+          <li>All generated outputs (threads, posts, clips, etc.)</li>
+          <li>The transcript</li>
+        </ul>
+        <p className="mt-4 text-sm text-slate-500 dark:text-slate-500">
+          This action cannot be undone.
+        </p>
+      </Dialog>
     </div>
   );
 }

@@ -297,6 +297,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const contentId = searchParams.get('contentId');
+    const search = searchParams.get('search') || undefined;
+    const status = searchParams.get('status') || undefined;
+    const sourceType = searchParams.get('sourceType') || undefined;
+    const sort = searchParams.get('sort') || 'newest';
 
     if (contentId) {
       // Get single content with outputs - MUST verify ownership
@@ -315,15 +319,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ content });
     }
 
-    // Get all content for user
+    // Build where clause for filters
+    const where: Record<string, unknown> = { userId };
+
+    if (status && ['pending', 'processing', 'completed', 'failed'].includes(status)) {
+      (where as { status?: string }).status = status;
+    }
+
+    if (sourceType && ['youtube', 'audio', 'video', 'pdf'].includes(sourceType)) {
+      (where as { sourceType?: string }).sourceType = sourceType;
+    }
+
+    if (search) {
+      (where as { title?: { contains?: string; mode?: string } }).title = {
+        contains: search,
+        mode: 'insensitive',
+      };
+    }
+
+    // Build order clause
+    const orderBy: Record<string, unknown> = {};
+    if (sort === 'oldest') {
+      (orderBy as { createdAt?: 'asc' | 'desc' }).createdAt = 'asc';
+    } else {
+      (orderBy as { createdAt?: 'asc' | 'desc' }).createdAt = 'desc'; // default: newest
+    }
+
+    // Get filtered content
     const contents = await prisma.content.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
+      where,
+      orderBy,
       take: 50,
       include: { _count: { select: { outputs: true } } },
     });
 
-    return NextResponse.json({ contents });
+    return NextResponse.json({ contents, filters: { search, status, sourceType, sort } });
   } catch (error) {
     console.error('Error fetching content:', error);
     return NextResponse.json(

@@ -140,9 +140,10 @@ export default function ContentDetail() {
       }
 
       await fetchContent();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Retry failed:', error);
-      alert(error.message || 'Failed to retry. Please try again later.');
+      const err = error as Error;
+      alert(err.message || 'Failed to retry. Please try again later.');
     } finally {
       setRetrying(false);
     }
