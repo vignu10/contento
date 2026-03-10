@@ -21,9 +21,12 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Download
+  Download,
+  Sun,
+  Moon
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
+import { useTheme } from '@/components/ThemeProvider';
 
 interface Content {
   id: string;
@@ -42,6 +45,7 @@ interface User {
 
 export default function Dashboard() {
   const router = useRouter();
+  const { theme, toggleTheme } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const [contents, setContents] = useState<Content[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,6 +221,19 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleTheme}
+              aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+            >
+              {theme === 'light' ? (
+                <Moon className="h-4 w-4" />
+              ) : (
+                <Sun className="h-4 w-4" />
+              )}
+            </Button>
             <span className="text-sm text-slate-600 dark:text-slate-300 hidden sm:block">
               {user?.name || user?.email}
             </span>

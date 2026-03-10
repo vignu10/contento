@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { useTheme } from '@/components/ThemeProvider';
 import {
   ArrowLeft,
   Loader2,
@@ -26,7 +27,9 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
-  RefreshCw
+  RefreshCw,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 interface Output {
@@ -62,6 +65,7 @@ interface ContentApiResponse {
 
 export default function ContentDetail() {
   const router = useRouter();
+  const { theme, toggleTheme } = useTheme();
   const params = useParams();
   const contentId = params.id as string;
 
@@ -140,9 +144,9 @@ export default function ContentDetail() {
       }
 
       await fetchContent();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Retry failed:', error);
-      alert(error.message || 'Failed to retry. Please try again later.');
+      alert((error as Error).message || 'Failed to retry. Please try again later.');
     } finally {
       setRetrying(false);
     }
@@ -394,6 +398,19 @@ export default function ContentDetail() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleTheme}
+                aria-label={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+                title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+              >
+                {theme === 'light' ? (
+                  <Moon className="h-4 w-4" />
+                ) : (
+                  <Sun className="h-4 w-4" />
+                )}
+              </Button>
               {getStatusBadge(content.status)}
               {content.status === 'failed' && (
                 <Button
