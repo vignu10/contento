@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { TikTokClip } from '@/services/ai';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -103,31 +104,34 @@ export default function ContentDetail() {
       if (!res.ok) {
         throw new Error('Export failed');
       }
-      
+
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      
+
       const filename = content?.title?.replace(/[^a-z0-9]/gi, '-') || contentId;
       const date = new Date().toISOString().split('T')[0];
-      
+
       a.download = `contento-${filename}-${date}.${format === 'json' ? 'json' : 'txt'}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      toast.success('Export successful', {
+        description: `Your ${format === 'json' ? 'JSON' : 'transcript'} has been downloaded.`,
+      });
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Failed to export content');
+      toast.error('Export failed', {
+        description: 'An error occurred while exporting the content',
+      });
     } finally {
       setDownloading(false);
     }
   }
 
   async function handleRetry() {
-    if (!confirm('Retry processing this content? This will regenerate all outputs.')) return;
-
     setRetrying(true);
     try {
       const res = await fetch(`/api/content/${contentId}/retry`, {
@@ -140,10 +144,15 @@ export default function ContentDetail() {
       }
 
       await fetchContent();
+      toast.success('Retry started', {
+        description: 'Your content is being processed again.',
+      });
     } catch (error) {
       console.error('Retry failed:', error);
       const err = error as Error;
-      alert(err.message || 'Failed to retry. Please try again later.');
+      toast.error('Retry failed', {
+        description: err.message || 'Failed to retry. Please try again later.',
+      });
     } finally {
       setRetrying(false);
     }
