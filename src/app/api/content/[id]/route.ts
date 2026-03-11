@@ -18,7 +18,7 @@ export async function GET(
     const content = await prisma.content.findFirst({
       where: {
         id,
-        userId,  // Critical: verify the content belongs to this user
+        userId,  // Critical: verify content belongs to this user
       },
       include: { outputs: true },
     });
@@ -33,6 +33,56 @@ export async function GET(
     console.error('Error fetching content:', error);
     return NextResponse.json(
       { error: 'Failed to fetch content' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  try {
+    const userId = getUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { title, sourceUrl, notes } = body;
+
+    // Validate at least one field is provided
+    if (title === undefined && sourceUrl === undefined && notes === undefined) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
+    // Verify ownership and update
+    const existingContent = await prisma.content.findFirst({
+      where: { id, userId },
+      select: { id: true },
+    });
+
+    if (!existingContent) {
+      return NextResponse.json({ error: 'Content not found' }, { status: 404 });
+    }
+
+    const updateData: Record<string, unknown> = {};
+    if (title !== undefined) updateData.title = title;
+    if (sourceUrl !== undefined) updateData.sourceUrl = sourceUrl;
+    if (notes !== undefined) updateData.notes = notes;
+
+    const updatedContent = await prisma.content.update({
+      where: { id },
+      data: updateData,
+    });
+
+    return NextResponse.json({ content: updatedContent });
+  } catch (error) {
+    console.error('Error updating content:', error);
+    return NextResponse.json(
+      { error: 'Failed to update content' },
       { status: 500 }
     );
   }
