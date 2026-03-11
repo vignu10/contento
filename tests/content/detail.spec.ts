@@ -1,37 +1,39 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Content Detail Page', () => {
+  let contentId: string;
+
   test.beforeEach(async ({ page }) => {
     // Login and create content
     await page.goto('/');
     const timestamp = Date.now();
     const email = `test-${timestamp}@example.com`;
-    
+
     await page.click('text=Sign Up');
     await page.getByLabel('Name').fill('Test User');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('testpass123');
     await page.click('button:has-text("Create Account")');
-    
+
     await expect(page).toHaveURL(/.*dashboard/, { timeout: 10000 });
-    
+
     // Process content
     const testUrl = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
     await page.getByPlaceholder(/youtube/i).fill(testUrl);
     await page.click('button:has-text("Process")');
-    
+
     // Wait for processing
     await expect(page.getByText(/completed/i)).toBeVisible({ timeout: 15000 });
-    
+
     // Click on content card
     const firstCard = page.locator('a[href^="/content/"]').first();
     await firstCard.click();
-    
+
     // Get content ID from URL
     const url = page.url();
     const match = url.match(/\/content\/([a-z0-9]+)/);
     contentId = match ? match[1] : '';
-    
+
     await expect(page).toHaveURL(/\/content\/[a-z0-9]+/);
   });
 
