@@ -23,25 +23,23 @@ branch = "main"
 name = "NODE_ENV"
 value = "production"
 
-# Database - Set this in Railway dashboard (Variables tab)
+# Database from Railway PostgreSQL service
+# Make sure service is named exactly "Postgres"
 [[services.variables]]
 name = "DATABASE_URL"
 value = "${{Postgres.DATABASE_URL}}"
 
-# Redis - Optional for now, add Redis service later
+# Redis - Optional, add Redis service later and uncomment
 # [[services.variables]]
 # name = "REDIS_URL"
 # value = "${{Redis.REDIS_URL}}"
 
-# JWT Secret - Set this in Railway dashboard
+# These should be set in Railway Variables tab (project-level)
 [[services.variables]]
 name = "JWT_SECRET"
-value = "${{JWT_SECRET}}"
 
-# OpenAI API Key - Set this in Railway dashboard
 [[services.variables]]
 name = "OPENAI_API_KEY"
-value = "${{OPENAI_API_KEY}}"
 
 [[services.variables]]
 name = "NEXT_PUBLIC_APP_URL"
