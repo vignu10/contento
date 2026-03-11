@@ -1,8 +1,8 @@
 # Railway Deployment Configuration
-# Using Nixpacks for automatic Next.js detection and build
+# Using Railpack for automatic Next.js detection and build
 
 [build]
-builder = "NIXPACKS"
+builder = "RAILPACK"
 
 [deploy]
 startCommand = "npm run start:production"
