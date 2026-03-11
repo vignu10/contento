@@ -1,6 +1,6 @@
 /**
  * Application configuration with required environment variable validation.
- * Fails fast at startup if any required variable is missing.
+ * Uses lazy evaluation to avoid accessing env vars during build time.
  */
 
 function getRequiredEnv(name: string): string {
@@ -15,32 +15,55 @@ function getOptionalEnv(name: string, defaultValue: string): string {
   return process.env[name] || defaultValue;
 }
 
-// Build-time config (throws if missing)
+// Runtime-only config with lazy getters
+// Accessors only run when values are used, not at module load time
 export const config = {
   // Authentication
-  jwtSecret: getRequiredEnv('JWT_SECRET'),
-  
+  get jwtSecret(): string {
+    return getRequiredEnv('JWT_SECRET');
+  },
+
   // OpenAI
-  openaiApiKey: getRequiredEnv('OPENAI_API_KEY'),
-  
+  get openaiApiKey(): string {
+    return getRequiredEnv('OPENAI_API_KEY');
+  },
+
   // Database
-  databaseUrl: getRequiredEnv('DATABASE_URL'),
-  
+  get databaseUrl(): string {
+    return getRequiredEnv('DATABASE_URL');
+  },
+
   // Redis
-  redisUrl: getOptionalEnv('REDIS_URL', 'redis://localhost:6379'),
-  
+  get redisUrl(): string {
+    return getOptionalEnv('REDIS_URL', 'redis://localhost:6379');
+  },
+
   // AWS S3
-  awsAccessKeyId: getOptionalEnv('AWS_ACCESS_KEY_ID', ''),
-  awsSecretAccessKey: getOptionalEnv('AWS_SECRET_ACCESS_KEY', ''),
-  awsRegion: getOptionalEnv('AWS_REGION', 'us-east-1'),
-  s3Bucket: getOptionalEnv('S3_BUCKET', 'content-repurposing'),
-  
+  get awsAccessKeyId(): string {
+    return getOptionalEnv('AWS_ACCESS_KEY_ID', '');
+  },
+  get awsSecretAccessKey(): string {
+    return getOptionalEnv('AWS_SECRET_ACCESS_KEY', '');
+  },
+  get awsRegion(): string {
+    return getOptionalEnv('AWS_REGION', 'us-east-1');
+  },
+  get s3Bucket(): string {
+    return getOptionalEnv('S3_BUCKET', 'content-repurposing');
+  },
+
   // App
-  appUrl: getOptionalEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000'),
-  nodeEnv: getOptionalEnv('NODE_ENV', 'development'),
-  
+  get appUrl(): string {
+    return getOptionalEnv('NEXT_PUBLIC_APP_URL', 'http://localhost:3000');
+  },
+  get nodeEnv(): string {
+    return getOptionalEnv('NODE_ENV', 'development');
+  },
+
   // Computed
-  isProduction: process.env.NODE_ENV === 'production',
+  get isProduction(): boolean {
+    return process.env.NODE_ENV === 'production';
+  },
 };
 
 export type Config = typeof config;
