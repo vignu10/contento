@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -115,11 +116,15 @@ export default function Dashboard() {
         fetchContents();
       } else {
         const data = await res.json();
-        alert(data.error || 'Failed to upload file');
+        toast.error('Upload failed', {
+          description: data.error || 'Failed to upload file',
+        });
       }
     } catch (error) {
       console.error('Failed to upload:', error);
-      alert('Failed to upload file');
+      toast.error('Upload failed', {
+        description: 'An error occurred while uploading the file',
+      });
     } finally {
       setProcessing(false);
     }
@@ -132,7 +137,7 @@ export default function Dashboard() {
       if (!res.ok) {
         throw new Error('Export failed');
       }
-      
+
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -142,9 +147,14 @@ export default function Dashboard() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      toast.success('Export successful', {
+        description: 'Your content history has been downloaded.',
+      });
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Failed to export history');
+      toast.error('Export failed', {
+        description: 'An error occurred while exporting your history',
+      });
     } finally {
       setExporting(false);
     }

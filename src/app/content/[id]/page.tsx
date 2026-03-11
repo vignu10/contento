@@ -2,12 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { TikTokClip } from '@/services/ai';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
 import {
   ArrowLeft,
   Loader2,
@@ -73,6 +75,14 @@ export default function ContentDetail() {
   const [downloading, setDownloading] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
+  // Regenerate dialog state
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const [regeneratingOutput, setRegeneratingOutput] = useState<Output | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
+  const [regeneratePrompt, setRegeneratePrompt] = useState('');
+  const [regenerateTone, setRegenerateTone] = useState('professional');
+  const [regenerateAngle, setRegenerateAngle] = useState('educational');
+
   const fetchContent = useCallback(async () => {
     const res = await fetch(`/api/content?contentId=${contentId}`);
     const data = await res.json() as ContentApiResponse;
@@ -103,31 +113,34 @@ export default function ContentDetail() {
       if (!res.ok) {
         throw new Error('Export failed');
       }
-      
+
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      
+
       const filename = content?.title?.replace(/[^a-z0-9]/gi, '-') || contentId;
       const date = new Date().toISOString().split('T')[0];
-      
+
       a.download = `contento-${filename}-${date}.${format === 'json' ? 'json' : 'txt'}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      toast.success('Export successful', {
+        description: `Your ${format === 'json' ? 'JSON' : 'transcript'} has been downloaded.`,
+      });
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Failed to export content');
+      toast.error('Export failed', {
+        description: 'An error occurred while exporting the content',
+      });
     } finally {
       setDownloading(false);
     }
   }
 
   async function handleRetry() {
-    if (!confirm('Retry processing this content? This will regenerate all outputs.')) return;
-
     setRetrying(true);
     try {
       const res = await fetch(`/api/content/${contentId}/retry`, {
@@ -140,12 +153,65 @@ export default function ContentDetail() {
       }
 
       await fetchContent();
+      toast.success('Retry started', {
+        description: 'Your content is being processed again.',
+      });
     } catch (error) {
       console.error('Retry failed:', error);
       const err = error as Error;
-      alert(err.message || 'Failed to retry. Please try again later.');
+      toast.error('Retry failed', {
+        description: err.message || 'Failed to retry. Please try again later.',
+      });
     } finally {
       setRetrying(false);
+    }
+  }
+
+  function openRegenerateDialog(output: Output) {
+    setRegeneratingOutput(output);
+    setShowRegenerateDialog(true);
+    setRegeneratePrompt('');
+    setRegenerateTone('professional');
+    setRegenerateAngle('educational');
+  }
+
+  async function handleRegenerate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!regeneratingOutput) return;
+
+    setRegenerating(true);
+    try {
+      const res = await fetch(
+        `/api/content/${contentId}/outputs/${regeneratingOutput.id}/regenerate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: regeneratePrompt || undefined,
+            tone: regenerateTone,
+            angle: regenerateAngle,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Regeneration failed');
+      }
+
+      await fetchContent();
+      setShowRegenerateDialog(false);
+      toast.success('Output regenerated', {
+        description: 'Your output has been regenerated with the new settings.',
+      });
+    } catch (error) {
+      console.error('Regeneration failed:', error);
+      const err = error as Error;
+      toast.error('Regeneration failed', {
+        description: err.message || 'Failed to regenerate output. Please try again.',
+      });
+    } finally {
+      setRegenerating(false);
     }
   }
 
@@ -205,6 +271,20 @@ export default function ContentDetail() {
     );
   }
 
+  function RegenerateButton({ output }: { output: Output }) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => openRegenerateDialog(output)}
+        className="h-8"
+      >
+        <RefreshCw className="h-3 w-3 mr-1" />
+        Regenerate
+      </Button>
+    );
+  }
+
   function renderOutput(output: Output) {
     const data = parseOutputData(output);
 
@@ -216,7 +296,10 @@ export default function ContentDetail() {
               <Card key={i}>
                 <CardContent className="p-4">
                   <p className="whitespace-pre-wrap mb-3">{tweet}</p>
-                  <CopyButton text={tweet} id={`tweet-${i}`} />
+                  <div className="flex gap-2">
+                    <CopyButton text={tweet} id={`tweet-${i}`} />
+                    {i === 0 && <RegenerateButton output={output} />}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -228,7 +311,10 @@ export default function ContentDetail() {
           <Card>
             <CardContent className="p-4">
               <p className="whitespace-pre-wrap mb-4">{data.text || data}</p>
-              <CopyButton text={data.text || data} id="linkedin" />
+              <div className="flex gap-2">
+                <CopyButton text={data.text || data} id="linkedin" />
+                <RegenerateButton output={output} />
+              </div>
             </CardContent>
           </Card>
         );
@@ -241,7 +327,10 @@ export default function ContentDetail() {
                 <p className="whitespace-pre-wrap">{data.text || data}</p>
               </div>
               <Separator className="my-4" />
-              <CopyButton text={data.text || data} id="newsletter" />
+              <div className="flex gap-2">
+                <CopyButton text={data.text || data} id="newsletter" />
+                <RegenerateButton output={output} />
+              </div>
             </CardContent>
           </Card>
         );
@@ -258,7 +347,10 @@ export default function ContentDetail() {
                     {clip.timestamp?.start}s - {clip.timestamp?.end}s
                   </p>
                   <p className="whitespace-pre-wrap mb-3">{clip.script}</p>
-                  <CopyButton text={clip.script} id={`clip-${i}`} />
+                  <div className="flex gap-2">
+                    <CopyButton text={clip.script} id={`clip-${i}`} />
+                    {i === 0 && <RegenerateButton output={output} />}
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -267,33 +359,36 @@ export default function ContentDetail() {
 
       case 'quote_graphic':
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Array.isArray(data) && data.map((quote: string, i: number) => (
-              <Card key={i} className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-0">
-                <CardContent className="p-6">
-                  <Quote className="h-6 w-6 mb-3 opacity-50" />
-                  <p className="text-lg font-medium mb-4">&ldquo;{quote}&rdquo;</p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => copyToClipboard(quote, `quote-${i}`)}
-                    className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-                  >
-                    {copied === `quote-${i}` ? (
-                      <>
-                        <Check className="h-3 w-3 mr-1" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3 mr-1" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.isArray(data) && data.map((quote: string, i: number) => (
+                <Card key={i} className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-0">
+                  <CardContent className="p-6">
+                    <Quote className="h-6 w-6 mb-3 opacity-50" />
+                    <p className="text-lg font-medium mb-4">&ldquo;{quote}&rdquo;</p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => copyToClipboard(quote, `quote-${i}`)}
+                      className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                    >
+                      {copied === `quote-${i}` ? (
+                        <>
+                          <Check className="h-3 w-3 mr-1" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3 mr-1" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <RegenerateButton output={output} />
           </div>
         );
 
@@ -305,7 +400,10 @@ export default function ContentDetail() {
                 <p className="whitespace-pre-wrap">{data.text || data}</p>
               </div>
               <Separator className="my-4" />
-              <CopyButton text={data.text || data} id="seo" />
+              <div className="flex gap-2">
+                <CopyButton text={data.text || data} id="seo" />
+                <RegenerateButton output={output} />
+              </div>
             </CardContent>
           </Card>
         );
@@ -322,10 +420,13 @@ export default function ContentDetail() {
                   </Badge>
                 ))}
               </div>
-              <CopyButton 
-                text={`${data.caption}\n\n${data.hashtags.map((t: string) => `#${t}`).join(' ')}`} 
-                id="instagram" 
-              />
+              <div className="flex gap-2">
+                <CopyButton
+                  text={`${data.caption}\n\n${data.hashtags.map((t: string) => `#${t}`).join(' ')}`}
+                  id="instagram"
+                />
+                <RegenerateButton output={output} />
+              </div>
             </CardContent>
           </Card>
         );
@@ -561,6 +662,89 @@ export default function ContentDetail() {
               </CardContent>
             )}
           </Card>
+        )}
+
+        {/* Regenerate Dialog */}
+        {showRegenerateDialog && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-md">
+              <CardHeader>
+                <CardTitle>Regenerate Output</CardTitle>
+              </CardHeader>
+              <form onSubmit={handleRegenerate}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="regenerate-prompt">Custom Prompt (optional)</Label>
+                    <textarea
+                      id="regenerate-prompt"
+                      value={regeneratePrompt}
+                      onChange={(e) => setRegeneratePrompt(e.target.value)}
+                      placeholder="Add specific instructions for regeneration..."
+                      className="w-full min-h-[100px] px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-300"
+                    />
+                    <p className="text-xs text-slate-500">
+                      Leave empty to use default AI generation
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="regenerate-tone">Tone</Label>
+                    <select
+                      id="regenerate-tone"
+                      value={regenerateTone}
+                      onChange={(e) => setRegenerateTone(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-300"
+                    >
+                      <option value="professional">Professional</option>
+                      <option value="casual">Casual</option>
+                      <option value="enthusiastic">Enthusiastic</option>
+                      <option value="witty">Witty</option>
+                      <option value="serious">Serious</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="regenerate-angle">Angle</Label>
+                    <select
+                      id="regenerate-angle"
+                      value={regenerateAngle}
+                      onChange={(e) => setRegenerateAngle(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-300"
+                    >
+                      <option value="educational">Educational</option>
+                      <option value="promotional">Promotional</option>
+                      <option value="storytelling">Storytelling</option>
+                      <option value="controversial">Controversial</option>
+                      <option value="inspiring">Inspiring</option>
+                    </select>
+                  </div>
+                </CardContent>
+                <div className="p-4 border-t flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowRegenerateDialog(false)}
+                    disabled={regenerating}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={regenerating}>
+                    {regenerating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Regenerating...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Regenerate
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          </div>
         )}
       </main>
     </div>
