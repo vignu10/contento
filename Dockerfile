@@ -18,6 +18,9 @@ RUN npx prisma generate
 # Build Next.js application
 RUN npm run build
 
+# Create a startup script that runs migrations before starting
+RUN echo '#!/bin/sh\nnpx prisma migrate deploy\nexec npm start' > /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
+
 # Create uploads directory for local storage fallback
 RUN mkdir -p /app/uploads
 
@@ -31,4 +34,4 @@ ENV HOSTNAME=0.0.0.0
 EXPOSE 3000
 
 # Start application
-CMD ["npm", "start"]
+CMD ["/app/docker-entrypoint.sh"]
