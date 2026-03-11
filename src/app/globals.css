@@ -2,32 +2,231 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 249, 250, 251;
-  --background-end-rgb: 255, 255, 255;
-}
+/* ============================================================================
+   CONTENTO DESIGN SYSTEM
+   Editorial Productivity Aesthetic
+   ============================================================================ */
 
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 17, 24, 39;
-    --background-end-rgb: 31, 41, 55;
+    /* ==========================================================================
+       MODERN COLOR TOKENS (OKLCH - Perceptually Uniform)
+       Warm terracotta/amber accents on sophisticated slate foundation
+       ========================================================================== */
+
+    /* Primary - Warm Terracotta */
+    --color-primary-50: 0.95 0.03 65;
+    --color-primary-100: 0.90 0.06 65;
+    --color-primary-200: 0.82 0.10 60;
+    --color-primary-300: 0.72 0.14 55;
+    --color-primary-400: 0.62 0.18 45;
+    --color-primary-500: 0.55 0.20 35; /* Main accent */
+    --color-primary-600: 0.48 0.18 30;
+    --color-primary-700: 0.42 0.16 25;
+    --color-primary-800: 0.36 0.12 22;
+    --color-primary-900: 0.32 0.08 20;
+
+    /* Neutral - Warm Slate (tinted toward terracotta for cohesion) */
+    --color-slate-50: 0.98 0.01 250;
+    --color-slate-100: 0.95 0.02 250;
+    --color-slate-200: 0.90 0.03 250;
+    --color-slate-300: 0.82 0.04 250;
+    --color-slate-400: 0.65 0.04 250;
+    --color-slate-500: 0.50 0.04 250;
+    --color-slate-600: 0.40 0.03 250;
+    --color-slate-700: 0.32 0.03 250;
+    --color-slate-800: 0.26 0.02 250;
+    --color-slate-900: 0.20 0.02 250;
+    --color-slate-950: 0.15 0.01 250;
+
+    /* Semantic Surface Colors */
+    --color-background: 0.98 0.01 250;
+    --color-surface: 1.00 0.00 0;
+    --color-surface-elevated: 1.00 0.00 0;
+    --color-border: 0.90 0.02 250;
+    --color-border-strong: 0.82 0.03 250;
+
+    /* Semantic Text Colors */
+    --color-text-primary: 0.20 0.02 250;
+    --color-text-secondary: 0.40 0.03 250;
+    --color-text-tertiary: 0.55 0.03 250;
+    --color-text-inverse: 1.00 0.00 0;
+
+    /* Semantic Accent Colors */
+    --color-accent: var(--color-primary-500);
+    --color-accent-hover: var(--color-primary-600);
+    --color-success: 0.65 0.15 145;
+    --color-warning: 0.75 0.15 85;
+    --color-error: 0.60 0.20 25;
+
+    /* Typography Scale (Fluid with clamp) */
+    --font-size-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+    --font-size-sm: clamp(0.875rem, 0.8rem + 0.375vw, 1rem);
+    --font-size-base: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
+    --font-size-lg: clamp(1.125rem, 1rem + 0.625vw, 1.25rem);
+    --font-size-xl: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
+    --font-size-2xl: clamp(1.5rem, 1.25rem + 1.25vw, 2rem);
+    --font-size-3xl: clamp(1.875rem, 1.5rem + 1.875vw, 2.5rem);
+    --font-size-4xl: clamp(2.25rem, 1.75rem + 2.5vw, 3rem);
+    --font-size-5xl: clamp(3rem, 2rem + 5vw, 4.5rem);
+
+    /* Spacing Scale */
+    --spacing-xs: 0.25rem;    /* 4px */
+    --spacing-sm: 0.5rem;     /* 8px */
+    --spacing-md: 1rem;       /* 16px */
+    --spacing-lg: 1.5rem;     /* 24px */
+    --spacing-xl: 2rem;       /* 32px */
+    --spacing-2xl: 3rem;      /* 48px */
+    --spacing-3xl: 4rem;      /* 64px */
+    --spacing-4xl: 6rem;      /* 96px */
+
+    /* Border Radius */
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.5rem;
+    --radius-xl: 0.75rem;
+    --radius-full: 9999px;
+
+    /* Transitions */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Shadows (subtle, layered) */
+    --shadow-sm: 0 1px 2px 0 oklch(0.20 0.02 250 / 0.05);
+    --shadow-md: 0 4px 6px -1px oklch(0.20 0.02 250 / 0.07), 0 2px 4px -2px oklch(0.20 0.02 250 / 0.05);
+    --shadow-lg: 0 10px 15px -3px oklch(0.20 0.02 250 / 0.08), 0 4px 6px -4px oklch(0.20 0.02 250 / 0.05);
+    --shadow-xl: 0 20px 25px -5px oklch(0.20 0.02 250 / 0.08), 0 8px 10px -6px oklch(0.20 0.02 250 / 0.05);
+
+    /* Z-index scale */
+    --z-dropdown: 100;
+    --z-sticky: 200;
+    --z-fixed: 300;
+    --z-modal-backdrop: 400;
+    --z-modal: 500;
+    --z-popover: 600;
+    --z-tooltip: 700;
+  }
+
+  /* Dark Mode - Inverted lightness, same chroma/hue for cohesion */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      /* Neutral - Cool Slate for dark mode */
+      --color-slate-50: 0.20 0.01 250;
+      --color-slate-100: 0.25 0.01 250;
+      --color-slate-200: 0.32 0.02 250;
+      --color-slate-300: 0.40 0.02 250;
+      --color-slate-400: 0.50 0.03 250;
+      --color-slate-500: 0.60 0.03 250;
+      --color-slate-600: 0.70 0.03 250;
+      --color-slate-700: 0.78 0.03 250;
+      --color-slate-800: 0.85 0.02 250;
+      --color-slate-900: 0.92 0.01 250;
+      --color-slate-950: 0.98 0.005 250;
+
+      /* Semantic Surface Colors (dark mode) */
+      --color-background: 0.20 0.01 250;
+      --color-surface: 0.25 0.01 250;
+      --color-surface-elevated: 0.28 0.01 250;
+      --color-border: 0.32 0.02 250;
+      --color-border-strong: 0.40 0.02 250;
+
+      /* Semantic Text Colors (dark mode) */
+      --color-text-primary: 0.95 0.005 250;
+      --color-text-secondary: 0.75 0.01 250;
+      --color-text-tertiary: 0.55 0.02 250;
+      --color-text-inverse: 0.15 0.01 250;
+
+      /* Primary - Warmer in dark mode for visibility */
+      --color-primary-400: 0.65 0.18 40;
+      --color-primary-500: 0.68 0.20 35;
+      --color-primary-600: 0.70 0.22 30;
+    }
+  }
+
+  /* Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Base styles */
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-text-primary antialiased;
+    font-feature-settings: "cv11", "ss01";
+    font-variation-settings: "opsz" 32;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Focus styles - accessible and visible */
+  *:focus-visible {
+    @apply outline-none;
+    box-shadow: 0 0 0 2px oklch(var(--color-background)), 0 0 0 4px oklch(var(--color-accent));
+  }
+
+  /* Selection color */
+  ::selection {
+    background-color: oklch(var(--color-accent) / 0.2);
+    color: oklch(var(--color-text-primary));
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-}
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Semantic color utilities */
+  .bg-background { background-color: oklch(var(--color-background)); }
+  .bg-surface { background-color: oklch(var(--color-surface)); }
+  .bg-surface-elevated { background-color: oklch(var(--color-surface-elevated)); }
+
+  .text-primary { color: oklch(var(--color-text-primary)); }
+  .text-secondary { color: oklch(var(--color-text-secondary)); }
+  .text-tertiary { color: oklch(var(--color-text-tertiary)); }
+  .text-inverse { color: oklch(var(--color-text-inverse)); }
+
+  .text-accent { color: oklch(var(--color-accent)); }
+  .bg-accent { background-color: oklch(var(--color-accent)); }
+  .bg-accent\/hover { background-color: oklch(var(--color-accent-hover)); }
+
+  /* Prose styling for content */
+  .prose {
+    @apply text-text-primary max-w-none;
+  }
+
+  .prose p {
+    @apply mb-4 leading-relaxed;
+  }
+
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4 {
+    @apply font-semibold tracking-tight;
+  }
+
+  .prose a {
+    @apply text-accent underline underline-offset-2 hover:no-underline;
+  }
+
+  /* Container queries support */
+  .container-query {
+    container-type: inline-size;
   }
 }

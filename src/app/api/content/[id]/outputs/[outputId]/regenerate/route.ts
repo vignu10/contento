@@ -36,6 +36,9 @@ export async function POST(
     const body = await request.json();
     const { prompt, tone, angle } = regenerateOutputSchema.parse(body);
 
+    // Build enhanced prompt with tone and angle (reserved for future AI implementation)
+    const enhancedPrompt = prompt ? `${prompt} (Tone: ${tone}, Angle: ${angle})` : undefined;
+
     // Verify ownership through content chain
     const output = await prisma.output.findUnique({
       where: { id: outputId },
@@ -63,7 +66,7 @@ export async function POST(
       output.format,
       output.content.transcript || '',
       output.content.title || 'Untitled',
-      prompt
+      enhancedPrompt
     );
 
     // Update the output

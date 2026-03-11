@@ -17,12 +17,11 @@ import {
   FileText,
   Loader2,
   LogOut,
-  Sparkles,
   ArrowRight,
   Clock,
   CheckCircle2,
   AlertCircle,
-  Download
+  Download,
 } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 
@@ -173,14 +172,14 @@ export default function Dashboard() {
     switch (status) {
       case 'completed':
         return (
-          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+          <Badge variant="success" className="bg-success text-text-inverse">
             <CheckCircle2 className="w-3 h-3 mr-1" />
             Completed
           </Badge>
         );
       case 'processing':
         return (
-          <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white">
+          <Badge className="bg-warning text-text-inverse">
             <Loader2 className="w-3 h-3 mr-1 animate-spin" />
             Processing
           </Badge>
@@ -205,29 +204,29 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm dark:bg-slate-900/80 sticky top-0 z-50">
+    <div className="min-h-screen bg-background">
+      {/* ==========================================================================
+          HEADER - Sticky, clean, left-aligned logo
+          ========================================================================== */}
+      <header className="border-b border-border bg-surface/80 backdrop-blur-sm sticky top-0 z-sticky">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-white" />
+            <div className="font-display text-xl font-bold tracking-tight text-text-primary">
+              Contento
             </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">
-                Contento
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">AI Content Repurposing</p>
-            </div>
+            <Separator orientation="vertical" className="h-6" />
+            <p className="text-sm text-text-tertiary hidden sm:block">
+              AI Content Repurposing
+            </p>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-600 dark:text-slate-300 hidden sm:block">
+            <span className="text-sm text-text-secondary hidden sm:block">
               {user?.name || user?.email}
             </span>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -239,21 +238,24 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Hero Section */}
-        <div className="mb-8 text-center">
-          <h2 className="text-3xl font-bold mb-2">Transform Your Content</h2>
-          <p className="text-slate-600 dark:text-slate-400">
+        {/* ==========================================================================
+            PAGE HEADER - Left-aligned, clear hierarchy
+            ========================================================================== */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-display font-bold tracking-tight text-text-primary mb-2">
+            Transform Your Content
+          </h2>
+          <p className="text-text-secondary">
             One piece of content → 10+ formats for all platforms
           </p>
         </div>
 
-        {/* New Content Section */}
-        <Card className="mb-8 border-2 shadow-lg">
+        {/* ==========================================================================
+            NEW CONTENT SECTION - Card for input area
+            ========================================================================== */}
+        <Card className="mb-8 border border-border-strong shadow-md">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-violet-600" />
-              Process New Content
-            </CardTitle>
+            <CardTitle>Process New Content</CardTitle>
             <CardDescription>
               Upload a file or paste a YouTube URL to get started
             </CardDescription>
@@ -310,17 +312,19 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Content History */}
+        {/* ==========================================================================
+            CONTENT HISTORY - Simplified list, not nested cards
+            ========================================================================== */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-violet-600" />
+                  <FileText className="h-5 w-5 text-accent" />
                   Your Content
                 </CardTitle>
                 <CardDescription>
-                  {contents.length === 0 
+                  {contents.length === 0
                     ? "No content processed yet. Start by uploading or pasting a URL above!"
                     : `${contents.length} piece${contents.length !== 1 ? 's' : ''} of content processed`
                   }
@@ -352,56 +356,54 @@ export default function Dashboard() {
             {contents.length === 0 ? (
               <div className="text-center py-12">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
-                  <FileText className="h-8 w-8 text-slate-400" />
+                  <FileText className="h-8 w-8 text-text-tertiary" />
                 </div>
-                <p className="text-slate-500 dark:text-slate-400">
+                <p className="text-text-secondary">
                   No content processed yet
                 </p>
-                <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+                <p className="text-sm text-text-tertiary mt-1">
                   Upload a file or paste a YouTube URL to get started
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {contents.map((content) => (
                   <Link
                     key={content.id}
                     href={`/content/${content.id}`}
                     className="block"
                   >
-                    <Card className="hover:shadow-md transition-all hover:border-violet-300 dark:hover:border-violet-700 cursor-pointer">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold truncate mb-1">
-                              {content.title || 'Untitled'}
-                            </h3>
-                            <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-                              <span className="flex items-center gap-1">
-                                {content.sourceType === 'youtube' ? (
-                                  <Youtube className="h-3 w-3" />
-                                ) : (
-                                  <Upload className="h-3 w-3" />
-                                )}
-                                {content.sourceType.toUpperCase()}
-                              </span>
-                              <Separator orientation="vertical" className="h-4" />
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {new Date(content.createdAt).toLocaleDateString()}
-                              </span>
-                              {content._count?.outputs && (
-                                <>
-                                  <Separator orientation="vertical" className="h-4" />
-                                  <span>{content._count.outputs} outputs</span>
-                                </>
+                    <div className="p-4 rounded-lg border border-border hover:border-accent hover:bg-surface-elevated transition-all cursor-pointer">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-text-primary truncate mb-1">
+                            {content.title || 'Untitled'}
+                          </h3>
+                          <div className="flex items-center gap-3 text-sm text-text-secondary">
+                            <span className="flex items-center gap-1">
+                              {content.sourceType === 'youtube' ? (
+                                <Youtube className="h-3 w-3" />
+                              ) : (
+                                <Upload className="h-3 w-3" />
                               )}
-                            </div>
+                              {content.sourceType.toUpperCase()}
+                            </span>
+                            <Separator orientation="vertical" className="h-4" />
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {new Date(content.createdAt).toLocaleDateString()}
+                            </span>
+                            {content._count?.outputs && (
+                              <>
+                                <Separator orientation="vertical" className="h-4" />
+                                <span>{content._count.outputs} outputs</span>
+                              </>
+                            )}
                           </div>
-                          {getStatusBadge(content.status)}
                         </div>
-                      </CardContent>
-                    </Card>
+                        {getStatusBadge(content.status)}
+                      </div>
+                    </div>
                   </Link>
                 ))}
               </div>

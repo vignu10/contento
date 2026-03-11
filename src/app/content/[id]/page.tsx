@@ -28,7 +28,7 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
-  RefreshCw
+  RefreshCw,
 } from 'lucide-react';
 
 interface Output {
@@ -219,14 +219,14 @@ export default function ContentDetail() {
     switch (status) {
       case 'completed':
         return (
-          <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+          <Badge variant="success" className="bg-success text-text-inverse">
             <CheckCircle2 className="w-3 h-3 mr-1" />
             Completed
           </Badge>
         );
       case 'processing':
         return (
-          <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white">
+          <Badge className="bg-warning text-text-inverse">
             <Loader2 className="w-3 h-3 mr-1 animate-spin" />
             Processing
           </Badge>
@@ -255,6 +255,7 @@ export default function ContentDetail() {
         size="sm"
         onClick={() => copyToClipboard(text, id)}
         className="h-8"
+        aria-label="Copy to clipboard"
       >
         {copied === id ? (
           <>
@@ -323,7 +324,7 @@ export default function ContentDetail() {
         return (
           <Card>
             <CardContent className="p-6">
-              <div className="prose prose-sm max-w-none dark:prose-invert">
+              <div className="prose prose-sm max-w-none">
                 <p className="whitespace-pre-wrap">{data.text || data}</p>
               </div>
               <Separator className="my-4" />
@@ -342,7 +343,7 @@ export default function ContentDetail() {
               <Card key={i}>
                 <CardContent className="p-4">
                   <h4 className="font-semibold text-lg mb-2">{clip.hook}</h4>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-2">
+                  <p className="text-sm text-text-secondary mb-3 flex items-center gap-2">
                     <Video className="h-3 w-3" />
                     {clip.timestamp?.start}s - {clip.timestamp?.end}s
                   </p>
@@ -362,7 +363,7 @@ export default function ContentDetail() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Array.isArray(data) && data.map((quote: string, i: number) => (
-                <Card key={i} className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-0">
+                <Card key={i} className="bg-accent text-text-inverse border-0">
                   <CardContent className="p-6">
                     <Quote className="h-6 w-6 mb-3 opacity-50" />
                     <p className="text-lg font-medium mb-4">&ldquo;{quote}&rdquo;</p>
@@ -370,7 +371,7 @@ export default function ContentDetail() {
                       variant="secondary"
                       size="sm"
                       onClick={() => copyToClipboard(quote, `quote-${i}`)}
-                      className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                      className="bg-white/20 hover:bg-white/30 text-text-inverse border-white/30"
                     >
                       {copied === `quote-${i}` ? (
                         <>
@@ -396,7 +397,7 @@ export default function ContentDetail() {
         return (
           <Card>
             <CardContent className="p-6">
-              <div className="prose prose-sm max-w-none dark:prose-invert">
+              <div className="prose prose-sm max-w-none">
                 <p className="whitespace-pre-wrap">{data.text || data}</p>
               </div>
               <Separator className="my-4" />
@@ -445,7 +446,7 @@ export default function ContentDetail() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
       </div>
     );
   }
@@ -475,9 +476,11 @@ export default function ContentDetail() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm dark:bg-slate-900/80 sticky top-0 z-50">
+    <div className="min-h-screen bg-background">
+      {/* ==========================================================================
+          HEADER - Clean, sticky, with clear actions
+          ========================================================================== */}
+      <header className="border-b border-border bg-surface/80 backdrop-blur-sm sticky top-0 z-sticky">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -487,10 +490,10 @@ export default function ContentDetail() {
               </Button>
               <Separator orientation="vertical" className="h-6" />
               <div>
-                <h1 className="text-xl font-bold truncate max-w-md">
+                <h1 className="text-xl font-bold truncate max-w-md font-display">
                   {content.title || 'Untitled'}
                 </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-text-secondary">
                   {content.sourceType.toUpperCase()} • {new Date(content.createdAt).toLocaleDateString()}
                 </p>
               </div>
@@ -503,7 +506,7 @@ export default function ContentDetail() {
                   size="sm"
                   onClick={handleRetry}
                   disabled={retrying}
-                  className="text-amber-600 border-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-400 dark:hover:bg-amber-950/50"
+                  className="text-accent border-accent hover:bg-accent/10"
                 >
                   {retrying ? (
                     <>
@@ -564,21 +567,21 @@ export default function ContentDetail() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Status Banner */}
+        {/* ==========================================================================
+          STATUS BANNERS - Clear, accessible messaging
+          ========================================================================== */}
         {content.status === 'failed' && (
-          <Card className="mb-6 border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900">
+          <Card className="mb-6 border-error/50 bg-error/10">
             <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
-                  <div>
-                    <p className="font-medium text-red-800 dark:text-red-200">
-                      Processing Failed
-                    </p>
-                    <p className="text-sm text-red-600 dark:text-red-300">
-                      There was an error processing your content. This could be due to a network issue or API rate limit.
-                    </p>
-                  </div>
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-error flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-error">
+                    Processing Failed
+                  </p>
+                  <p className="text-sm text-text-secondary mt-1">
+                    There was an error processing your content. This could be due to a network issue or API rate limit.
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -586,11 +589,11 @@ export default function ContentDetail() {
         )}
 
         {(content.status === 'pending' || content.status === 'processing') && (
-          <Card className="mb-6 border-yellow-200 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-900">
+          <Card className="mb-6 border-warning/50 bg-warning/10">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-yellow-600" />
-                <p className="text-yellow-800 dark:text-yellow-200">
+                <Loader2 className="h-5 w-5 animate-spin text-warning" />
+                <p className="text-text-primary">
                   Processing your content... This usually takes 30-60 seconds. Page will auto-refresh.
                 </p>
               </div>
@@ -598,7 +601,9 @@ export default function ContentDetail() {
           </Card>
         )}
 
-        {/* Output Tabs */}
+        {/* ==========================================================================
+          OUTPUT TABS - Navigate between different content formats
+          ========================================================================== */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 gap-2">
             {formatTabs.map((tab) => {
@@ -626,7 +631,7 @@ export default function ContentDetail() {
                 ) : (
                   <Card>
                     <CardContent className="p-8 text-center">
-                      <p className="text-slate-500 dark:text-slate-400">
+                      <p className="text-text-secondary">
                         Output not available yet
                       </p>
                     </CardContent>
@@ -637,7 +642,9 @@ export default function ContentDetail() {
           })}
         </Tabs>
 
-        {/* Transcript */}
+        {/* ==========================================================================
+          TRANSCRIPT - Collapsible section for full content
+          ========================================================================== */}
         {content.transcript && (
           <Card className="mt-8">
             <CardHeader>
@@ -656,7 +663,7 @@ export default function ContentDetail() {
             </CardHeader>
             {showTranscript && (
               <CardContent>
-                <p className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 max-h-96 overflow-y-auto">
+                <p className="whitespace-pre-wrap text-text-secondary max-h-96 overflow-y-auto">
                   {content.transcript}
                 </p>
               </CardContent>
@@ -664,10 +671,12 @@ export default function ContentDetail() {
           </Card>
         )}
 
-        {/* Regenerate Dialog */}
+        {/* ==========================================================================
+          REGENERATE DIALOG - Modal for regenerating content with custom settings
+          ========================================================================== */}
         {showRegenerateDialog && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-md">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-modal p-4" role="dialog" aria-modal="true">
+            <Card className="w-full max-w-md shadow-xl">
               <CardHeader>
                 <CardTitle>Regenerate Output</CardTitle>
               </CardHeader>
@@ -680,9 +689,9 @@ export default function ContentDetail() {
                       value={regeneratePrompt}
                       onChange={(e) => setRegeneratePrompt(e.target.value)}
                       placeholder="Add specific instructions for regeneration..."
-                      className="w-full min-h-[100px] px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-300"
+                      className="w-full min-h-[100px] px-3 py-2 text-sm border border-border rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 bg-surface"
                     />
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-text-tertiary">
                       Leave empty to use default AI generation
                     </p>
                   </div>
@@ -693,7 +702,7 @@ export default function ContentDetail() {
                       id="regenerate-tone"
                       value={regenerateTone}
                       onChange={(e) => setRegenerateTone(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-300"
+                      className="w-full px-3 py-2 text-sm border border-border rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 bg-surface"
                     >
                       <option value="professional">Professional</option>
                       <option value="casual">Casual</option>
@@ -709,7 +718,7 @@ export default function ContentDetail() {
                       id="regenerate-angle"
                       value={regenerateAngle}
                       onChange={(e) => setRegenerateAngle(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-300"
+                      className="w-full px-3 py-2 text-sm border border-border rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 bg-surface"
                     >
                       <option value="educational">Educational</option>
                       <option value="promotional">Promotional</option>
@@ -719,7 +728,7 @@ export default function ContentDetail() {
                     </select>
                   </div>
                 </CardContent>
-                <div className="p-4 border-t flex justify-end gap-2">
+                <div className="p-4 border-t border-border flex justify-end gap-2">
                   <Button
                     type="button"
                     variant="outline"
