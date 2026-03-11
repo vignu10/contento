@@ -2,11 +2,10 @@
 # This configuration uses Dockerfile for consistent builds
 
 [build]
-builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+builder = "NIXPACKS"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "npm run start:production"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
