@@ -1,5 +1,5 @@
 # Railway Deployment Configuration
-# This configuration uses Dockerfile for consistent builds
+# Using Nixpacks for automatic Next.js detection and build
 
 [build]
 builder = "NIXPACKS"
@@ -18,22 +18,18 @@ name = "contento"
 repo = "vignu10/contento"
 branch = "main"
 
+# Set these in Railway Variables tab (project-level):
+# - DATABASE_URL (from your PostgreSQL service)
+# - JWT_SECRET
+# - OPENAI_API_KEY
+
 [[services.variables]]
 name = "NODE_ENV"
 value = "production"
 
-# Database from Railway PostgreSQL service
-# Make sure service is named exactly "Postgres"
 [[services.variables]]
 name = "DATABASE_URL"
-value = "${{Postgres.DATABASE_URL}}"
 
-# Redis - Optional, add Redis service later and uncomment
-# [[services.variables]]
-# name = "REDIS_URL"
-# value = "${{Redis.REDIS_URL}}"
-
-# These should be set in Railway Variables tab (project-level)
 [[services.variables]]
 name = "JWT_SECRET"
 
