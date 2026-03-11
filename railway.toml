@@ -28,10 +28,10 @@ value = "production"
 name = "DATABASE_URL"
 value = "${{Postgres.DATABASE_URL}}"
 
-# Redis - Set this in Railway dashboard or add Redis service
-[[services.variables]]
-name = "REDIS_URL"
-value = "${{Redis.REDIS_URL}}"
+# Redis - Optional for now, add Redis service later
+# [[services.variables]]
+# name = "REDIS_URL"
+# value = "${{Redis.REDIS_URL}}"
 
 # JWT Secret - Set this in Railway dashboard
 [[services.variables]]
